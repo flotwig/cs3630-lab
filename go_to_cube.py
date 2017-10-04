@@ -71,30 +71,24 @@ async def run(robot: cozmo.robot.Robot):
     lowerThreshold = PINK_LOWER
     upperThreshold = PINK_UPPER
 
-    def callback(*args):
-        return
-        #lowerThreshold = np.array([cv2.getTrackbarPos("Hue Lower", windowName), cv2.getTrackbarPos("Sat Lower", windowName), cv2.getTrackbarPos("Val Lower", windowName)])
-        #upperThreshold = np.array([cv2.getTrackbarPos("Hue Upper", windowName), cv2.getTrackbarPos("Sat Upper", windowName), cv2.getTrackbarPos("Val Upper", windowName)])
-
     windowName = "Threshold Adjuster"
     cv2.namedWindow(windowName)
     cv2.createTrackbar("Hue Lower", windowName, lowerThreshold[0], 180,
-                       callback)
+                       nothing)
     cv2.createTrackbar("Hue Upper", windowName, upperThreshold[0], 180,
-                       callback)
+                       nothing)
     cv2.createTrackbar("Sat Lower", windowName, lowerThreshold[1], 255,
-                       callback)
+                       nothing)
     cv2.createTrackbar("Sat Upper", windowName, upperThreshold[1], 255,
-                       callback)
+                       nothing)
     cv2.createTrackbar("Val Lower", windowName, lowerThreshold[2], 255,
-                       callback)
+                       nothing)
     cv2.createTrackbar("Val Upper", windowName, upperThreshold[2], 255,
-                       callback)
+                       nothing)
 
-    last_turn = 0
-    oscillations = 0
+    last_turn = 0  # direction of last turn, 1 to right, -1 to left
+    oscillations = 0  # how many times we've bounced left to right
     near_mode = False
-    last_diameters = []
 
     try:
 
@@ -131,7 +125,7 @@ async def run(robot: cozmo.robot.Robot):
                 if (near_mode):
                     # we're near the box, blob detection gets glitchy
                     # keep track of last 5 diameters, if the average falls below drop out of this mode
-                    print(last_diameters)
+                    last_diameters = []
                     if cube == None:
                         last_diameters.append(0)
                     else:
@@ -154,7 +148,6 @@ async def run(robot: cozmo.robot.Robot):
                     oscillations += (last_turn == np.sign(delta) * -1)
                     if abs(delta) > 30:
                         last_turn = np.sign(delta)
-                        # assume <15 oscillations
                         await robot.turn_in_place(
                             cozmo.util.degrees(
                                 np.sign(delta) * np.max([
@@ -170,11 +163,9 @@ async def run(robot: cozmo.robot.Robot):
                             near_mode = True
 
     except KeyboardInterrupt:
-        print("")
         print("Exit requested by user")
     except cozmo.RobotBusy as e:
         print(e)
-    #cv2.destroyAllWindows()
 
 
 if __name__ == '__main__':
