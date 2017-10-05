@@ -8,9 +8,15 @@ import cozmo
 import time
 import os
 from glob import glob
+from boxAnnotator import BoxAnnotator
 
 ### Zach Bloomquist & Taylor Hearn
 ### CS 3630 Lab 3
+
+PINK_LOWER = np.array(np.array([168, 150, 141]).round(), np.uint8)
+PINK_UPPER = np.array(np.array([180, 224, 255]).round(), np.uint8)
+
+IMAGE_WIDTH = 320
 
 def run(robot: cozmo.robot.Robot):
     robot.world.image_annotator.annotation_enabled = True
@@ -27,21 +33,6 @@ def run(robot: cozmo.robot.Robot):
     lowerThreshold = PINK_LOWER
     upperThreshold = PINK_UPPER
 
-    windowName = "Threshold Adjuster"
-    cv2.namedWindow(windowName)
-    cv2.createTrackbar("Hue Lower", windowName, lowerThreshold[0], 180,
-                       nothing)
-    cv2.createTrackbar("Hue Upper", windowName, upperThreshold[0], 180,
-                       nothing)
-    cv2.createTrackbar("Sat Lower", windowName, lowerThreshold[1], 255,
-                       nothing)
-    cv2.createTrackbar("Sat Upper", windowName, upperThreshold[1], 255,
-                       nothing)
-    cv2.createTrackbar("Val Lower", windowName, lowerThreshold[2], 255,
-                       nothing)
-    cv2.createTrackbar("Val Upper", windowName, upperThreshold[2], 255,
-                       nothing)
-
     last_turn = 0  # direction of last turn, 1 to right, -1 to left
     oscillations = 0  # how many times we've bounced left to right
     near_mode = False
@@ -50,17 +41,6 @@ def run(robot: cozmo.robot.Robot):
 
         while True:
             cv2.waitKey(1)
-
-            lowerThreshold = np.array([
-                cv2.getTrackbarPos("Hue Lower", windowName),
-                cv2.getTrackbarPos("Sat Lower", windowName),
-                cv2.getTrackbarPos("Val Lower", windowName)
-            ])
-            upperThreshold = np.array([
-                cv2.getTrackbarPos("Hue Upper", windowName),
-                cv2.getTrackbarPos("Sat Upper", windowName),
-                cv2.getTrackbarPos("Val Upper", windowName)
-            ])
 
             event = await robot.world.wait_for(
                 cozmo.camera.EvtNewRawCameraImage,
@@ -73,50 +53,7 @@ def run(robot: cozmo.robot.Robot):
                 else:
                     robot.camera.set_manual_exposure(exposure, fixed_gain)
 
-                #find the cube
-                cube = find_cube(image, lowerThreshold, upperThreshold)
-                print(cube)
-                BoxAnnotator.cube = cube
-
-                if (near_mode):
-                    # we're near the box, blob detection gets glitchy
-                    # keep track of last 5 diameters, if the average falls below drop out of this mode
-                    last_diameters = []
-                    if cube == None:
-                        last_diameters.append(0)
-                    else:
-                        last_diameters.append(cube[2])
-                    if len(last_diameters) >= 41:
-                        last_diameters = last_diameters[1:41]
-                    if np.average(np.array(last_diameters)) > 100:
-                        continue
-                    else:
-                        print("dropping out of near mode")
-                        last_diameters = []
-                        near_mode = False
-
-                # if no keypoint, start turning til there is one
-                if (cube is None):
-                    await robot.turn_in_place(
-                        cozmo.util.degrees(37)).wait_for_completed()
-                else:  # turn until it is in the center
-                    delta = (IMAGE_WIDTH / 2) - cube[0]
-                    oscillations += (last_turn == np.sign(delta) * -1)
-                    if abs(delta) > 30:
-                        last_turn = np.sign(delta)
-                        await robot.turn_in_place(
-                            cozmo.util.degrees(
-                                np.sign(delta) * np.max([
-                                    delta / 7 - oscillations, 5
-                                ]))).wait_for_completed()
-                    else:
-                        if cube[2] < 200:
-                            await robot.drive_straight(
-                                cozmo.util.distance_inches(2),
-                                cozmo.util.speed_mmps(800)
-                            ).wait_for_completed()
-                        else:
-                            near_mode = True
+                
 
     except KeyboardInterrupt:
         print("Exit requested by user")
