@@ -46,12 +46,12 @@ def run(robot: cozmo.robot.Robot):
                 print("Leaving state: " + state.name)
             print("Entering state: " + state.name)
             robot.say_text(
-                "Entering State. " + state.name,
-                in_parallel=True,
-                use_cozmo_voice=False)
+                "Entering " + state.name,
+                use_cozmo_voice=False,
+                in_parallel=True).wait_for_completed()
 
-        state = state.act(robot)
         last_state = state
+        state = state.act(robot)
 
 
 def generate_face(state):
@@ -79,9 +79,16 @@ class LocateARFace:
     name = "Locate A R Face"
 
     def act(robot: cozmo.robot.Robot):
-        cube = robot.world.wait_for_observed_light_cube(timeout=5)
-        if cube is None:  #maybe it got moved, let's search more
+        try:
+            cube = robot.world.wait_for_observed_light_cube(timeout=5)
+        except:  #maybe it got moved, let's search more
             return FindARCube
+        robot.dock_with_cube(
+            cube,
+            approach_angle=cozmo.util.degrees(180),
+            alignment_type=cozmo.robot_alignment.RobotAlignmentTypes.Custom,
+            distance_from_marker=cozmo.util.distance_mm(
+                70)).wait_for_completed()
         print(cube)
         return LocateARFace
 
