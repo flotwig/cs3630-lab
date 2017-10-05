@@ -18,6 +18,7 @@ from find_cube import *
 PINK_LOWER = np.array(np.array([168, 150, 141]).round(), np.uint8)
 PINK_UPPER = np.array(np.array([180, 224, 255]).round(), np.uint8)
 
+thresholdWindowName = "Adjust Thresholds"
 lowerThreshold = PINK_LOWER
 upperThreshold = PINK_UPPER
 
@@ -26,6 +27,8 @@ IMAGE_WIDTH = 320
 
 def run(robot: cozmo.robot.Robot):
     # initial setup, variables
+    createThresholdTrackbars()
+    
     gain, exposure, mode = 390, 3, 1
 
     robot.world.image_annotator.annotation_enabled = True
@@ -40,10 +43,8 @@ def run(robot: cozmo.robot.Robot):
 
     # state machine
     last_state = None
-    state = FindARCube
+    state = FindColorCube
     while state:
-        cv2.waitKey(1)
-
         event = robot.world.wait_for(
             cozmo.camera.EvtNewRawCameraImage, timeout=30)  #get camera image
         if event.image is not None:
@@ -73,19 +74,29 @@ def generate_face(state):
     dc.text((0, 0), state.name, fill=(255, 255, 255, 255))
     return text_image
 
+    
+def createThresholdTrackbars():
+    def nothing(x):
+        pass
+    cv2.namedWindow(thresholdWindowName)
+    cv2.createTrackbar("Hue Lower", thresholdWindowName, lowerThreshold[0], 180, nothing)
+    cv2.createTrackbar("Hue Upper", thresholdWindowName, upperThreshold[0], 180, nothing)
+    cv2.createTrackbar("Sat Lower", thresholdWindowName, lowerThreshold[1], 255, nothing)
+    cv2.createTrackbar("Sat Upper", thresholdWindowName, upperThreshold[1], 255, nothing)
+    cv2.createTrackbar("Val Lower", thresholdWindowName, lowerThreshold[2], 255, nothing)
+    cv2.createTrackbar("Val Upper", thresholdWindowName, upperThreshold[2], 255, nothing)
 
 def adjustThresholds():
     cv2.waitKey(1)
-
     lowerThreshold = np.array([
-        cv2.getTrackbarPos("Hue Lower", windowName),
-        cv2.getTrackbarPos("Sat Lower", windowName),
-        cv2.getTrackbarPos("Val Lower", windowName)
+        cv2.getTrackbarPos("Hue Lower", thresholdWindowName),
+        cv2.getTrackbarPos("Sat Lower", thresholdWindowName),
+        cv2.getTrackbarPos("Val Lower", thresholdWindowName)
     ])
     upperThreshold = np.array([
-        cv2.getTrackbarPos("Hue Upper", windowName),
-        cv2.getTrackbarPos("Sat Upper", windowName),
-        cv2.getTrackbarPos("Val Upper", windowName)
+        cv2.getTrackbarPos("Hue Upper", thresholdWindowName),
+        cv2.getTrackbarPos("Sat Upper", thresholdWindowName),
+        cv2.getTrackbarPos("Val Upper", thresholdWindowName)
     ])
 
 
@@ -122,36 +133,52 @@ class LocateARFace:
 
 
 class FindColorCube:
+    name = "Find Color Cube"
+    
     def act(robot: cozmo.robot.Robot):
-        adjustThresholds()
         robot.drive_wheels(-10.0, 10.0)
 
         while True:
-            image = robot.world.latest_image
-            cube = find_cube(image, lowerThreshold, upperThreshold)
-            if cube != None:
-                return MoveToColorCube
+            adjustThresholds()
+            event = robot.world.wait_for(cozmo.camera.EvtNewRawCameraImage, timeout=30)  #get camera image
+            if event.image is not None:
+                image = cv2.cvtColor(np.asarray(event.image), cv2.COLOR_BGR2RGB)
+                cube = find_cube(image, lowerThreshold, upperThreshold)
+                if cube != None:
+                    robot.stop_all_motors()
+                    return MoveToColorCube
 
 
 class MoveToColorCube:
+    name = "Move to Color Cube"
+    
     def act(robot: cozmo.robot.Robot):
-        adjustThresholds()
         while True:
-            image = robot.world.latest_image
-            cube = find_cube(image, lowerThreshold, upperThreshold)
-            if cube == None:
-                return FindColorCube
-            else:
-                cubeSize = cube[2]
-                if cubeSize < 200:
-                    delta = (cube[0] - (IMAGE_WIDTH / 2)) / (IMAGE_WIDTH / 2)
-                    base = 50
-                    turnStrength = 25
-                    left = base + max(turnStrength * 50, 0)
-                    right = base + min(turnStrength * 50, 0)
-                    robot.drive_wheels(left, right)
+            adjustThresholds()
+            event = robot.world.wait_for(cozmo.camera.EvtNewRawCameraImage, timeout=30)  #get camera image
+            if event.image is not None:
+                image = cv2.cvtColor(np.asarray(event.image), cv2.COLOR_BGR2RGB)
+                cube = find_cube(image, lowerThreshold, upperThreshold)
+                if cube == None:
+                    return FindColorCube
                 else:
-                    return MoveToColorCube
+                    cubeSize = cube[2]
+                    if cubeSize < 200:
+                        delta = (cube[0] - (IMAGE_WIDTH / 2)) / (IMAGE_WIDTH / 2)
+                        base = 15
+                        turnStrength = 35
+                        left = base + max(turnStrength * delta, 0)
+                        right = base + max(turnStrength * -delta, 0)
+                        robot.drive_wheels(left, right)
+                    else:
+                        return MoveToColorCube
+                        
+                        
+class Stop:
+    name = "Stop"
+    
+    def act(robot: cozmo.robot.Robot):
+        return Stop
 
 
 if __name__ == "__main__":
