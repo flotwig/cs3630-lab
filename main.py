@@ -37,17 +37,30 @@ def run(robot: cozmo.robot.Robot):
         if event.image is not None:
             image = cv2.cvtColor(np.asarray(event.image), cv2.COLOR_BGR2RGB)
 
-        if last_state != state:
+        if last_state != state:  #state change
             last_state = state
         state = state.act(robot)
+    cv2
 
     robot.set_head_angle(cozmo.util.degrees(0)).wait_for_completed()
 
 
 class FindARCube:
     def act(robot: cozmo.robot.Robot):
+        robot.drive_wheels(-10.0, 10.0)
+        cube = robot.world.wait_for_observed_light_cube()
+        robot.stop_all_motors()
+        robot.go_to_object(cube,
+                           cozmo.util.distance_mm(100)).wait_for_completed()
+        return LocateARFace
 
-        return FindARCube
+
+class LocateARFace:
+    def act(robot: cozmo.robot.Robot):
+        cube = robot.world.wait_for_observed_light_cube(timeout=5)
+        if cube is None:  #maybe it got moved, let's search more
+            return FindARCube
+        return LocateARFace
 
 
 if __name__ == "__main__":
