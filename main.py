@@ -64,7 +64,7 @@ def run(robot: cozmo.robot.Robot):
         last_state = state
         state = state.act(robot)
 
-        
+
 def generate_face(state):
     # make a blank image for the text, initialized to opaque black
     text_image = Image.new('RGBA', cozmo.oled_face.dimensions(), (0, 0, 0,
@@ -72,7 +72,8 @@ def generate_face(state):
     dc = ImageDraw.Draw(text_image)
     dc.text((0, 0), state.name, fill=(255, 255, 255, 255))
     return text_image
-    
+
+
 def adjustThresholds():
     cv2.waitKey(1)
 
@@ -87,7 +88,7 @@ def adjustThresholds():
         cv2.getTrackbarPos("Val Upper", windowName)
     ])
 
-    
+
 class FindARCube:
     name = "Find A R Cube"
 
@@ -105,10 +106,10 @@ class LocateARFace:
     name = "Locate A R Face"
 
     def act(robot: cozmo.robot.Robot):
+        adjustThresholds()
         try:
             cube = robot.world.wait_for_observed_light_cube(timeout=5)
         except:  #maybe it got moved, let's search more
-        adjustThresholds()
             return FindARCube
         robot.dock_with_cube(
             cube,
@@ -119,19 +120,19 @@ class LocateARFace:
         print(cube)
         return LocateARFace
 
-        
+
 class FindColorCube:
     def act(robot: cozmo.robot.Robot):
         adjustThresholds()
         robot.drive_wheels(-10.0, 10.0)
-        
+
         while True:
             image = robot.world.latest_image
             cube = find_cube(image, lowerThreshold, upperThreshold)
             if cube != None:
                 return MoveToColorCube
-                
-                
+
+
 class MoveToColorCube:
     def act(robot: cozmo.robot.Robot):
         adjustThresholds()
@@ -152,6 +153,6 @@ class MoveToColorCube:
                 else:
                     return MoveToColorCube
 
-    
+
 if __name__ == "__main__":
     cozmo.run_program(run, use_viewer=True, force_viewer_on_top=True)
