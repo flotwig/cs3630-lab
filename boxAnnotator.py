@@ -1,4 +1,6 @@
+from PIL import ImageDraw
 import cozmo
+
 
 # Define a decorator as a subclass of Annotator; displays the keypoint
 class BoxAnnotator(cozmo.annotate.Annotator):
