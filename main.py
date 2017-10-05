@@ -72,12 +72,27 @@ def generate_face(state):
     dc = ImageDraw.Draw(text_image)
     dc.text((0, 0), state.name, fill=(255, 255, 255, 255))
     return text_image
+    
+def adjustThresholds():
+    cv2.waitKey(1)
+
+    lowerThreshold = np.array([
+        cv2.getTrackbarPos("Hue Lower", windowName),
+        cv2.getTrackbarPos("Sat Lower", windowName),
+        cv2.getTrackbarPos("Val Lower", windowName)
+    ])
+    upperThreshold = np.array([
+        cv2.getTrackbarPos("Hue Upper", windowName),
+        cv2.getTrackbarPos("Sat Upper", windowName),
+        cv2.getTrackbarPos("Val Upper", windowName)
+    ])
 
     
 class FindARCube:
     name = "Find A R Cube"
 
     def act(robot: cozmo.robot.Robot):
+        adjustThresholds()
         robot.drive_wheels(-10.0, 10.0)
         cube = robot.world.wait_for_observed_light_cube()
         robot.stop_all_motors()
@@ -90,6 +105,7 @@ class LocateARFace:
     name = "Locate A R Face"
 
     def act(robot: cozmo.robot.Robot):
+        adjustThresholds()
         cube = robot.world.wait_for_observed_light_cube(timeout=5)
         if cube is None:  #maybe it got moved, let's search more
             return FindARCube
@@ -99,6 +115,7 @@ class LocateARFace:
         
 class FindColorCube:
     def act(robot: cozmo.robot.Robot):
+        adjustThresholds()
         robot.drive_wheels(-10.0, 10.0)
         
         while True:
@@ -110,6 +127,7 @@ class FindColorCube:
                 
 class MoveToColorCube:
     def act(robot: cozmo.robot.Robot):
+        adjustThresholds()
         while True:
             image = robot.world.latest_image
             cube = find_cube(image, lowerThreshold, upperThreshold)
