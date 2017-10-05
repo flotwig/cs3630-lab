@@ -29,29 +29,16 @@ def run(robot: cozmo.robot.Robot):
     await robot.set_head_angle(cozmo.util.degrees(0)).wait_for_completed()
 
     gain, exposure, mode = 390, 3, 1
+    robot.camera.set_manual_exposure(exposure, fixed_gain)
 
     lowerThreshold = PINK_LOWER
     upperThreshold = PINK_UPPER
-
-    last_turn = 0  # direction of last turn, 1 to right, -1 to left
-    oscillations = 0  # how many times we've bounced left to right
-    near_mode = False
-
+    
     try:
-
         while True:
             cv2.waitKey(1)
 
-            event = await robot.world.wait_for(
-                cozmo.camera.EvtNewRawCameraImage,
-                timeout=30)  #get camera image
-            if event.image is not None:
-                image = cv2.cvtColor(
-                    np.asarray(event.image), cv2.COLOR_BGR2RGB)
-                if mode == 1:
-                    robot.camera.enable_auto_exposure = True
-                else:
-                    robot.camera.set_manual_exposure(exposure, fixed_gain)
+            
 
                 
 
@@ -59,11 +46,17 @@ def run(robot: cozmo.robot.Robot):
         print("Exit requested by user")
     except cozmo.RobotBusy as e:
         print(e)
+        
 
 class FindARCube:
-    def act():
-        
-    def nextState():
+    def act(robot):
+        event = await robot.world.wait_for(
+            cozmo.camera.EvtNewRawCameraImage,
+            timeout=30)  #get camera image
+        if event.image is not None:
+            image = cv2.cvtColor(np.asarray(event.image), cv2.COLOR_BGR2RGB)
+            
+            
         
 
 
