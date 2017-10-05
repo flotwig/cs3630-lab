@@ -7,7 +7,7 @@ import numpy as np
 import cozmo
 import time
 import os
-from PIL import ImageDraw
+from PIL import ImageDraw, Image
 from glob import glob
 from boxAnnotator import BoxAnnotator
 from find_cube import *
@@ -34,6 +34,9 @@ def run(robot: cozmo.robot.Robot):
     robot.camera.image_stream_enabled = True
     robot.camera.color_image_enabled = True
     robot.camera.enable_auto_exposure = True
+    robot.set_robot_volume(.3)
+
+    robot.set_head_angle(cozmo.util.degrees(0), in_parallel=True)
 
     # state machine
     last_state = None
@@ -41,18 +44,39 @@ def run(robot: cozmo.robot.Robot):
     while state:
         cv2.waitKey(1)
 
-        
+        event = robot.world.wait_for(
+            cozmo.camera.EvtNewRawCameraImage, timeout=30)  #get camera image
         if event.image is not None:
             image = cv2.cvtColor(np.asarray(event.image), cv2.COLOR_BGR2RGB)
 
         if last_state != state:  #state change
-            last_state = state
-        state = state.act(robot)
-    cv2
+            face = cozmo.oled_face.convert_image_to_screen_data(
+                generate_face(state))
+            robot.display_oled_face_image(face, 30000, in_parallel=True)
+            if last_state != None:
+                print("Leaving state: " + state.name)
+            print("Entering state: " + state.name)
+            robot.say_text(
+                "Entering State. " + state.name,
+                in_parallel=True,
+                use_cozmo_voice=False)
 
-    robot.set_head_angle(cozmo.util.degrees(0)).wait_for_completed()
+        state = state.act(robot)
+        last_state = state
+
+        
+def generate_face(state):
+    # make a blank image for the text, initialized to opaque black
+    text_image = Image.new('RGBA', cozmo.oled_face.dimensions(), (0, 0, 0,
+                                                                  255))
+    dc = ImageDraw.Draw(text_image)
+    dc.text((0, 0), state.name, fill=(255, 255, 255, 255))
+    return text_image
+
     
 class FindARCube:
+    name = "Find A R Cube"
+
     def act(robot: cozmo.robot.Robot):
         robot.drive_wheels(-10.0, 10.0)
         cube = robot.world.wait_for_observed_light_cube()
@@ -63,12 +87,16 @@ class FindARCube:
 
 
 class LocateARFace:
+    name = "Locate A R Face"
+
     def act(robot: cozmo.robot.Robot):
         cube = robot.world.wait_for_observed_light_cube(timeout=5)
         if cube is None:  #maybe it got moved, let's search more
             return FindARCube
+        print(cube)
         return LocateARFace
 
+        
 class FindColorCube:
     def act(robot: cozmo.robot.Robot):
         robot.drive_wheels(-10.0, 10.0)
@@ -82,7 +110,7 @@ class FindColorCube:
     
     
 class MoveToColorCube:
-    def act(robot: cozmo.robot.Robot):
+    def act(robot: cozmo.robot.Robot): pass
 
     
 if __name__ == "__main__":
