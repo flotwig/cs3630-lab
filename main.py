@@ -10,9 +10,18 @@ import os
 from PIL import ImageDraw
 from glob import glob
 from boxAnnotator import BoxAnnotator
+from find_cube import *
 
 ### Zach Bloomquist & Taylor Hearn
 ### CS 3630 Lab 3
+
+PINK_LOWER = np.array(np.array([168, 150, 141]).round(), np.uint8)
+PINK_UPPER = np.array(np.array([180, 224, 255]).round(), np.uint8)
+
+lowerThreshold = PINK_LOWER
+upperThreshold = PINK_UPPER
+
+IMAGE_WIDTH = 320
 
 
 def run(robot: cozmo.robot.Robot):
@@ -32,8 +41,7 @@ def run(robot: cozmo.robot.Robot):
     while state:
         cv2.waitKey(1)
 
-        event = robot.world.wait_for(
-            cozmo.camera.EvtNewRawCameraImage, timeout=30)  #get camera image
+        
         if event.image is not None:
             image = cv2.cvtColor(np.asarray(event.image), cv2.COLOR_BGR2RGB)
 
@@ -43,8 +51,7 @@ def run(robot: cozmo.robot.Robot):
     cv2
 
     robot.set_head_angle(cozmo.util.degrees(0)).wait_for_completed()
-
-
+    
 class FindARCube:
     def act(robot: cozmo.robot.Robot):
         robot.drive_wheels(-10.0, 10.0)
@@ -62,6 +69,21 @@ class LocateARFace:
             return FindARCube
         return LocateARFace
 
+class FindColorCube:
+    def act(robot: cozmo.robot.Robot):
+        robot.drive_wheels(-10.0, 10.0)
+        
+        while True:
+            image = robot.world.latest_image
+            cube = find_cube(image, lowerThreshold, upperThreshold)
+            if cube != None:
+                delta = ((IMAGE_WIDTH / 2) - cube[0]) / (IMAGE_WIDTH / 2)
+                
+    
+    
+class MoveToColorCube:
+    def act(robot: cozmo.robot.Robot):
 
+    
 if __name__ == "__main__":
     cozmo.run_program(run, use_viewer=True, force_viewer_on_top=True)
