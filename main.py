@@ -105,12 +105,27 @@ class FindColorCube:
             image = robot.world.latest_image
             cube = find_cube(image, lowerThreshold, upperThreshold)
             if cube != None:
-                delta = ((IMAGE_WIDTH / 2) - cube[0]) / (IMAGE_WIDTH / 2)
+                return MoveToColorCube
                 
-    
-    
+                
 class MoveToColorCube:
-    def act(robot: cozmo.robot.Robot): pass
+    def act(robot: cozmo.robot.Robot):
+        while True:
+            image = robot.world.latest_image
+            cube = find_cube(image, lowerThreshold, upperThreshold)
+            if cube == None:
+                return FindColorCube
+            else:
+                cubeSize = cube[2]
+                if cubeSize < 200:
+                    delta = (cube[0] - (IMAGE_WIDTH / 2)) / (IMAGE_WIDTH / 2)
+                    base = 50
+                    turnStrength = 25
+                    left = base + max(turnStrength * 50, 0)
+                    right = base + min(turnStrength * 50, 0)
+                    robot.drive_wheels(left, right)
+                else:
+                    return MoveToColorCube
 
     
 if __name__ == "__main__":
