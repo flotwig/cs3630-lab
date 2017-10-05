@@ -12,7 +12,14 @@ from glob import glob
 ### Zach Bloomquist & Taylor Hearn
 ### CS 3630 Lab 3
 
+
 def run(robot: cozmo.robot.Robot):
+    last_state = None
+    state = FindARCube
+    while state:
+        if last_state != state:
+            last_state = state
+        state = state.act()
     robot.world.image_annotator.annotation_enabled = True
     robot.world.image_annotator.add_annotator('box', BoxAnnotator)
 
@@ -20,7 +27,7 @@ def run(robot: cozmo.robot.Robot):
     robot.camera.color_image_enabled = True
     robot.camera.enable_auto_exposure = True
 
-    await robot.set_head_angle(cozmo.util.degrees(0)).wait_for_completed()
+    robot.set_head_angle(cozmo.util.degrees(0)).wait_for_completed()
 
     gain, exposure, mode = 390, 3, 1
 
@@ -62,7 +69,7 @@ def run(robot: cozmo.robot.Robot):
                 cv2.getTrackbarPos("Val Upper", windowName)
             ])
 
-            event = await robot.world.wait_for(
+            event = robot.world.wait_for(
                 cozmo.camera.EvtNewRawCameraImage,
                 timeout=30)  #get camera image
             if event.image is not None:
@@ -97,24 +104,24 @@ def run(robot: cozmo.robot.Robot):
 
                 # if no keypoint, start turning til there is one
                 if (cube is None):
-                    await robot.turn_in_place(
+                    robot.turn_in_place(
                         cozmo.util.degrees(37)).wait_for_completed()
                 else:  # turn until it is in the center
                     delta = (IMAGE_WIDTH / 2) - cube[0]
                     oscillations += (last_turn == np.sign(delta) * -1)
                     if abs(delta) > 30:
                         last_turn = np.sign(delta)
-                        await robot.turn_in_place(
+                        robot.turn_in_place(
                             cozmo.util.degrees(
                                 np.sign(delta) * np.max([
                                     delta / 7 - oscillations, 5
                                 ]))).wait_for_completed()
                     else:
                         if cube[2] < 200:
-                            await robot.drive_straight(
+                            robot.drive_straight(
                                 cozmo.util.distance_inches(2),
-                                cozmo.util.speed_mmps(800)
-                            ).wait_for_completed()
+                                cozmo.util.speed_mmps(
+                                    800)).wait_for_completed()
                         else:
                             near_mode = True
 
@@ -123,11 +130,13 @@ def run(robot: cozmo.robot.Robot):
     except cozmo.RobotBusy as e:
         print(e)
 
+
 class FindARCube:
-    def act():
-        
-    def nextState():
-        
+    def act(robot: cozmo.robot.Robot):
+        ayncio.ensure_future(
+            robot.drive_straight(
+                cozmo.util.distance_inches(2), cozmo.util.speed_mmps(800)))
+        return self
 
 
 if __name__ == "__main__":
