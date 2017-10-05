@@ -10,9 +10,18 @@ import os
 from PIL import ImageDraw, Image
 from glob import glob
 from boxAnnotator import BoxAnnotator
+from find_cube import *
 
 ### Zach Bloomquist & Taylor Hearn
 ### CS 3630 Lab 3
+
+PINK_LOWER = np.array(np.array([168, 150, 141]).round(), np.uint8)
+PINK_UPPER = np.array(np.array([180, 224, 255]).round(), np.uint8)
+
+lowerThreshold = PINK_LOWER
+upperThreshold = PINK_UPPER
+
+IMAGE_WIDTH = 320
 
 
 def run(robot: cozmo.robot.Robot):
@@ -33,6 +42,8 @@ def run(robot: cozmo.robot.Robot):
     last_state = None
     state = FindARCube
     while state:
+        cv2.waitKey(1)
+
         event = robot.world.wait_for(
             cozmo.camera.EvtNewRawCameraImage, timeout=30)  #get camera image
         if event.image is not None:
@@ -53,7 +64,7 @@ def run(robot: cozmo.robot.Robot):
         last_state = state
         state = state.act(robot)
 
-
+        
 def generate_face(state):
     # make a blank image for the text, initialized to opaque black
     text_image = Image.new('RGBA', cozmo.oled_face.dimensions(), (0, 0, 0,
@@ -61,12 +72,27 @@ def generate_face(state):
     dc = ImageDraw.Draw(text_image)
     dc.text((0, 0), state.name, fill=(255, 255, 255, 255))
     return text_image
+    
+def adjustThresholds():
+    cv2.waitKey(1)
 
+    lowerThreshold = np.array([
+        cv2.getTrackbarPos("Hue Lower", windowName),
+        cv2.getTrackbarPos("Sat Lower", windowName),
+        cv2.getTrackbarPos("Val Lower", windowName)
+    ])
+    upperThreshold = np.array([
+        cv2.getTrackbarPos("Hue Upper", windowName),
+        cv2.getTrackbarPos("Sat Upper", windowName),
+        cv2.getTrackbarPos("Val Upper", windowName)
+    ])
 
+    
 class FindARCube:
     name = "Find A R Cube"
 
     def act(robot: cozmo.robot.Robot):
+        adjustThresholds()
         robot.drive_wheels(-10.0, 10.0)
         cube = robot.world.wait_for_observed_light_cube()
         robot.stop_all_motors()
@@ -82,6 +108,7 @@ class LocateARFace:
         try:
             cube = robot.world.wait_for_observed_light_cube(timeout=5)
         except:  #maybe it got moved, let's search more
+        adjustThresholds()
             return FindARCube
         robot.dock_with_cube(
             cube,
@@ -92,6 +119,39 @@ class LocateARFace:
         print(cube)
         return LocateARFace
 
+        
+class FindColorCube:
+    def act(robot: cozmo.robot.Robot):
+        adjustThresholds()
+        robot.drive_wheels(-10.0, 10.0)
+        
+        while True:
+            image = robot.world.latest_image
+            cube = find_cube(image, lowerThreshold, upperThreshold)
+            if cube != None:
+                return MoveToColorCube
+                
+                
+class MoveToColorCube:
+    def act(robot: cozmo.robot.Robot):
+        adjustThresholds()
+        while True:
+            image = robot.world.latest_image
+            cube = find_cube(image, lowerThreshold, upperThreshold)
+            if cube == None:
+                return FindColorCube
+            else:
+                cubeSize = cube[2]
+                if cubeSize < 200:
+                    delta = (cube[0] - (IMAGE_WIDTH / 2)) / (IMAGE_WIDTH / 2)
+                    base = 50
+                    turnStrength = 25
+                    left = base + max(turnStrength * 50, 0)
+                    right = base + min(turnStrength * 50, 0)
+                    robot.drive_wheels(left, right)
+                else:
+                    return MoveToColorCube
 
+    
 if __name__ == "__main__":
     cozmo.run_program(run, use_viewer=True, force_viewer_on_top=True)
