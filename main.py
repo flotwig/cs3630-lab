@@ -158,7 +158,7 @@ class FindColorCubeRight:
         
 # 1 = clockwise/right, -1 = counterclockwise/left
 def findColorCube(robot: cozmo.robot.Robot, direction):
-    robot.drive_wheels(direction * 10.0, -direction * 10.0)
+    robot.drive_wheels(direction * 15, -direction * 15)
     while True:
         adjustThresholds()
         event = robot.world.wait_for(cozmo.camera.EvtNewRawCameraImage, timeout=30)  #get camera image
@@ -173,7 +173,7 @@ def findColorCube(robot: cozmo.robot.Robot, direction):
 
 
 class MoveToColorCube:
-    name = "Move" #"Move to Color Cube"
+    name = "Move to Color Cube"
     
     def act(robot: cozmo.robot.Robot):
         delta = 0
@@ -187,21 +187,21 @@ class MoveToColorCube:
                 if cube == None:
                     robot.stop_all_motors()
                     failures += 1
-                    if failures > 10:
+                    if failures > 20:
                         if delta > 0:
                             return FindColorCubeRight
                         else:
                             return FindColorCubeLeft
                 else:
+                    failures = 0
                     cubeSize = cube[2]
-                    print(str(cubeSize))
                     if cubeSize > 100:
                         robot.stop_all_motors()
                         return Stop                        
                     else:
                         delta = cubeDelta(cube)
-                        base = 15
-                        turnStrength = min(max(cubeSize, 10), 35)
+                        base = 20
+                        turnStrength = min(max(cubeSize, 10), 40)
                         left = base + max(turnStrength * delta, 0)
                         right = base + max(turnStrength * -delta, 0)
                         robot.drive_wheels(left, right)
@@ -221,15 +221,19 @@ class Stop:
                 cube = find_cube(image, lowerThreshold, upperThreshold)
                 if cube == None:
                     failures += 1
-                    if failures > 10:
+                    if failures > 20:
                         if delta > 0:
                             return FindColorCubeRight
                         else:
                             return FindColorCubeLeft
                 else:
                     cubeSize = cube[2]
-                    if cubeSize < 5:
-                        return MoveToColorCube
+                    if cubeSize < 95:
+                        failures += 1
+                        if failures > 20:
+                            return MoveToColorCube
+                    else:
+                        failures = 0
                     delta = cubeDelta(cube)
                
 # x displacement of cube blob from center of screen (as a percentage of IMAGE_WIDTH / 2)
