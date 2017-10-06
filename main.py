@@ -111,31 +111,33 @@ class FindARCube:
         rotation_speed = 10 #radians /s
         wheel_radius = 13 #mm
         max_fwd_speed = 15 #radians /s
-        stop_distance = 100  # mm
+        stop_distance = 80  # mm
+        good_enough_angle = 10 #degrees
         near_cube = False
         robot.drive_wheels(-1 * rotation_speed, rotation_speed) #begin rotating
         cube = robot.world.wait_for_observed_light_cube()
+        cube.set_lights(cozmo.lights.green_light)
         while not near_cube:
             try:
                 cube = robot.world.wait_for_observed_light_cube(timeout=5)
             except:
                 robot.drive_wheels(-1 * rotation_speed, rotation_speed)
                 continue
-            cube.set_lights(cozmo.lights.green_light)
             cozmo_pos = robot.pose.position
             cube_pos = cube.pose.position
-            angle_to_go = robot.pose_angle.degrees - np.degrees(np.arctan((cube_pos.y - cozmo_pos.y) / (cube_pos.x - cozmo_pos.x)))
+            angle_to_go = np.degrees(np.arctan(abs((cube_pos.y - cozmo_pos.y) / (cube_pos.x - cozmo_pos.x)))) - robot.pose_angle.degrees
             distance_to_go = np.sqrt((cube_pos.x - cozmo_pos.x)**2 + (cube_pos.y - cozmo_pos.y)**2)
             print("cube", cube_pos)
             print("cozmo", cozmo_pos)
             wheel_fwd_speed = 0
-            if abs(angle_to_go) <= 5: # first rotate to face...
+            if abs(angle_to_go) <= good_enough_angle: # first rotate to face...
                 wheel_rot_speed = 0
+                #robot.stop_all_motors()
                 if distance_to_go > stop_distance: # then move to...
-                    wheel_fwd_speed = min(rotation_speed, distance_to_go / wheel_radius)
+                    wheel_fwd_speed = min(rotation_speed * 10, distance_to_go / (wheel_radius / 2))
             else:
                 wheel_rot_speed = np.sign(angle_to_go) * min(abs(angle_to_go), rotation_speed)
-            if distance_to_go <= stop_distance and abs(angle_to_go) <= 5:
+            if distance_to_go <= stop_distance and abs(angle_to_go) <= good_enough_angle:
                 robot.stop_all_motors()
                 near_cube = True
                 continue
