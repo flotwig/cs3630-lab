@@ -23,6 +23,8 @@ thresholdWindowName = "Adjust Thresholds"
 lowerThreshold = PINK_LOWER
 upperThreshold = PINK_UPPER
 
+headAngle = -5
+
 IMAGE_WIDTH = 320
 
 
@@ -40,7 +42,7 @@ def run(robot: cozmo.robot.Robot):
     robot.camera.enable_auto_exposure = True
     robot.set_robot_volume(.3)
 
-    robot.set_head_angle(cozmo.util.degrees(0), in_parallel=True)
+    robot.set_head_angle(cozmo.util.degrees(headAngle), in_parallel=True)
 
     # state machine
     last_state = None
@@ -139,29 +141,43 @@ class FindARCube:
                 robot.drive_wheels(l_speed, r_speed)
                 time.sleep(.1)
         cube.set_lights(cozmo.lights.blue_light)
-        return FindColorCube
+        return FindColorCubeLeft
 
-class FindColorCube:
-    name = "Find Color Cube"
+class FindColorCubeLeft:
+    name = "Find Color Cube Left"
     
     def act(robot: cozmo.robot.Robot):
-        robot.drive_wheels(-10.0, 10.0)
+        return findColorCube(robot, -1)
+        
 
-        while True:
-            adjustThresholds()
-            event = robot.world.wait_for(cozmo.camera.EvtNewRawCameraImage, timeout=30)  #get camera image
-            if event.image is not None:
-                image = cv2.cvtColor(np.asarray(event.image), cv2.COLOR_BGR2RGB)
-                cube = find_cube(image, lowerThreshold, upperThreshold)
-                if cube != None:
+class FindColorCubeRight:
+    name = "Find Color Cube Right"
+    
+    def act(robot: cozmo.robot.Robot):
+        return findColorCube(robot, 1)
+        
+# 1 = clockwise/right, -1 = counterclockwise/left
+def findColorCube(robot: cozmo.robot.Robot, direction):
+    robot.drive_wheels(direction * 10.0, -direction * 10.0)
+    while True:
+        adjustThresholds()
+        event = robot.world.wait_for(cozmo.camera.EvtNewRawCameraImage, timeout=30)  #get camera image
+        if event.image is not None:
+            image = cv2.cvtColor(np.asarray(event.image), cv2.COLOR_BGR2RGB)
+            cube = find_cube(image, lowerThreshold, upperThreshold)
+            if cube != None:
+                delta = cubeDelta(cube)
+                if(abs(delta) < 0.5):
                     robot.stop_all_motors()
                     return MoveToColorCube
 
 
 class MoveToColorCube:
-    name = "Move to Color Cube"
+    name = "Move" #"Move to Color Cube"
     
     def act(robot: cozmo.robot.Robot):
+        delta = 0
+        failures = 0
         while True:
             adjustThresholds()
             event = robot.world.wait_for(cozmo.camera.EvtNewRawCameraImage, timeout=30)  #get camera image
@@ -169,25 +185,71 @@ class MoveToColorCube:
                 image = cv2.cvtColor(np.asarray(event.image), cv2.COLOR_BGR2RGB)
                 cube = find_cube(image, lowerThreshold, upperThreshold)
                 if cube == None:
-                    return FindColorCube
+                    robot.stop_all_motors()
+                    failures += 1
+                    if failures > 10:
+                        if delta > 0:
+                            return FindColorCubeRight
+                        else:
+                            return FindColorCubeLeft
                 else:
                     cubeSize = cube[2]
-                    if cubeSize < 200:
-                        delta = (cube[0] - (IMAGE_WIDTH / 2)) / (IMAGE_WIDTH / 2)
+                    print(str(cubeSize))
+                    if cubeSize > 100:
+                        robot.stop_all_motors()
+                        return Stop                        
+                    else:
+                        delta = cubeDelta(cube)
                         base = 15
-                        turnStrength = 35
+                        turnStrength = min(max(cubeSize, 10), 35)
                         left = base + max(turnStrength * delta, 0)
                         right = base + max(turnStrength * -delta, 0)
                         robot.drive_wheels(left, right)
-                    else:
-                        return MoveToColorCube
                         
                         
 class Stop:
     name = "Stop"
     
     def act(robot: cozmo.robot.Robot):
-        return Stop
+        delta = 0
+        failures = 0
+        while True:
+            adjustThresholds()
+            event = robot.world.wait_for(cozmo.camera.EvtNewRawCameraImage, timeout=30)  #get camera image
+            if event.image is not None:
+                image = cv2.cvtColor(np.asarray(event.image), cv2.COLOR_BGR2RGB)
+                cube = find_cube(image, lowerThreshold, upperThreshold)
+                if cube == None:
+                    failures += 1
+                    if failures > 10:
+                        if delta > 0:
+                            return FindColorCubeRight
+                        else:
+                            return FindColorCubeLeft
+                else:
+                    cubeSize = cube[2]
+                    if cubeSize < 5:
+                        return MoveToColorCube
+                    delta = cubeDelta(cube)
+               
+# x displacement of cube blob from center of screen (as a percentage of IMAGE_WIDTH / 2)
+def cubeDelta(cube):
+    return (cube[0] - (IMAGE_WIDTH / 2)) / (IMAGE_WIDTH / 2)
+                        
+class RunningAverage:
+    def __init__(self, size):
+        self.list = list()
+        self.size = size
+        
+    def record(self, item):
+        self.list.append(item)
+        if len(self.list) > self.size:
+            self.list.pop[0]
+            
+    def average(self):
+        if len(self.list) == 0:
+            return None
+        return sum(self.list) / len(self.list)
 
 
 if __name__ == "__main__":
