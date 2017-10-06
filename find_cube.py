@@ -47,7 +47,7 @@ def detect_blob(mask):
     params = cv2.SimpleBlobDetector_Params()
 
     params.filterByArea = True
-    params.minArea = 300
+    params.minArea = 5
     params.maxArea = 100000
 
     params.filterByColor = True
@@ -89,5 +89,5 @@ def find_cube(img, hsv_lower, hsv_upper):
     # Todo: Sort the keypoints in a certain way if multiple key points get returned
     ###############################################################################
 
-    #keypoints = sorted(keypoints, key=lambda keypoint: keypoint.size, reverse=True)
+    keypoints = sorted(keypoints, key=lambda keypoint: keypoint.size, reverse=True)
     return [keypoints[0].pt[0], keypoints[0].pt[1], keypoints[0].size]
