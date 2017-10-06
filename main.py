@@ -11,6 +11,7 @@ from PIL import ImageDraw, Image
 from glob import glob
 from boxAnnotator import BoxAnnotator
 from find_cube import *
+import pdb
 
 ### Zach Bloomquist & Taylor Hearn
 ### CS 3630 Lab 3
@@ -60,7 +61,7 @@ def run(robot: cozmo.robot.Robot):
             robot.say_text(
                 "Entering " + state.name,
                 use_cozmo_voice=False,
-                in_parallel=True).wait_for_completed()
+                in_parallel=True)
 
         last_state = state
         state = state.act(robot)
@@ -105,32 +106,40 @@ class FindARCube:
 
     def act(robot: cozmo.robot.Robot):
         adjustThresholds()
-        robot.drive_wheels(-10.0, 10.0)
-        cube = robot.world.wait_for_observed_light_cube()
-        robot.stop_all_motors()
-        robot.go_to_object(cube,
-                           cozmo.util.distance_mm(100)).wait_for_completed()
-        return LocateARFace
-
-
-class LocateARFace:
-    name = "Locate A R Face"
-
-    def act(robot: cozmo.robot.Robot):
-        adjustThresholds()
-        try:
-            cube = robot.world.wait_for_observed_light_cube(timeout=5)
-        except:  #maybe it got moved, let's search more
-            return FindARCube
-        robot.dock_with_cube(
-            cube,
-            approach_angle=cozmo.util.degrees(180),
-            alignment_type=cozmo.robot_alignment.RobotAlignmentTypes.Custom,
-            distance_from_marker=cozmo.util.distance_mm(
-                70)).wait_for_completed()
-        print(cube)
-        return LocateARFace
-
+        rotation_speed = 20 #radians /s
+        wheel_radius = 13 #mm
+        max_fwd_speed = 15 #radians /s
+        stop_distance = 100  # mm
+        near_cube = False
+        robot.drive_wheels(-1 * rotation_speed, rotation_speed)
+        while not near_cube:
+            cube = robot.world.wait_for_observed_light_cube()
+            cube.set_lights(cozmo.lights.green_light)
+            cube_pos = robot.pose.define_pose_relative_this(cube.pose).position
+            cozmo_pos = robot.pose.position
+            angle_to_go = np.degrees(np.arctan(cube_pos.x / cube_pos.y))
+            distance_to_go = np.sqrt(cube_pos.x**2 + cube_pos.y**2)
+            print(cube_pos)
+            wheel_fwd_speed = 0
+            if abs(angle_to_go) <= 5: # first rotate to face...
+                robot.stop_all_motors()
+                wheel_rot_speed = 0
+                if distance_to_go > stop_distance: # then move to...
+                    wheel_fwd_speed = min(max_fwd_speed, max(rotation_speed, distance_to_go / wheel_radius))
+            else:
+                wheel_rot_speed = np.sign(angle_to_go) * min(abs(angle_to_go), rotation_speed)
+            if distance_to_go <= stop_distance and abs(angle_to_go) <= 5:
+                robot.stop_all_motors()
+                near_cube = True
+                continue
+            else:
+                l_speed = wheel_fwd_speed - wheel_rot_speed
+                r_speed = wheel_fwd_speed + wheel_rot_speed
+                print(angle_to_go, distance_to_go, wheel_fwd_speed, wheel_rot_speed, l_speed, r_speed)
+                robot.drive_wheels(l_speed, r_speed)
+                time.sleep(.1)
+        cube.set_lights(cozmo.lights.blue_light)
+        return FindColorCube
 
 class FindColorCube:
     name = "Find Color Cube"
