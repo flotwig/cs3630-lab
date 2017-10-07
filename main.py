@@ -46,7 +46,7 @@ def run(robot: cozmo.robot.Robot):
 
     # state machine
     last_state = None
-    state = FindColorCubeLeft
+    state = FindARCube
     while state:
         event = robot.world.wait_for(
             cozmo.camera.EvtNewRawCameraImage, timeout=30)  #get camera image
