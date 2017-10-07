@@ -46,7 +46,7 @@ def run(robot: cozmo.robot.Robot):
 
     # state machine
     last_state = None
-    state = FindARCube
+    state = FindColorCubeLeft
     while state:
         event = robot.world.wait_for(
             cozmo.camera.EvtNewRawCameraImage, timeout=30)  #get camera image
@@ -91,11 +91,13 @@ def createThresholdTrackbars():
 
 def adjustThresholds():
     cv2.waitKey(1)
+    global lowerThreshold
     lowerThreshold = np.array([
         cv2.getTrackbarPos("Hue Lower", thresholdWindowName),
         cv2.getTrackbarPos("Sat Lower", thresholdWindowName),
         cv2.getTrackbarPos("Val Lower", thresholdWindowName)
     ])
+    global upperThreshold
     upperThreshold = np.array([
         cv2.getTrackbarPos("Hue Upper", thresholdWindowName),
         cv2.getTrackbarPos("Sat Upper", thresholdWindowName),
