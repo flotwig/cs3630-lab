@@ -60,7 +60,8 @@ class FindARCube:
                 distance = np.sqrt(difference.position.x ** 2 + difference.position.y ** 2)
                 angle_diff = abs(difference.rotation.angle_z.degrees)
                 if distance <= stop_distance and angle_diff <= stop_angle:
-                    go_to_pose.abort()
+                    if go_to_pose.is_running: # avoid weird exception
+                        go_to_pose.abort()
                     really_stop(robot)
                     got_to_cube = True
             go_to_pose.wait_for_completed()
