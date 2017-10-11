@@ -66,7 +66,7 @@ def run(robot: cozmo.robot.Robot):
             display = robot.display_oled_face_image(face, 30000, in_parallel=True)
 
             if last_state != None:
-                print("Leaving state: " + state.name)
+                print("Leaving state: " + last_state.name)
             print("Entering state: " + state.name)
             robot.say_text(
                 "Entering " + state.phonetic_name,
