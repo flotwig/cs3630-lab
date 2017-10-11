@@ -1,6 +1,5 @@
 import cv2
 import numpy as np
-import time
 
 ### Zach Bloomquist & Taylor Hearn
 ### CS 3630 Lab 2
