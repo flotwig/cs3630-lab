@@ -30,6 +30,8 @@ def run(robot: cozmo.robot.Robot):
             face = cozmo.oled_face.convert_image_to_screen_data(
                 generate_face(state))
             robot.display_oled_face_image(face, 30000, in_parallel=True)
+            if last_state is not None:
+                print("Leaving state: " + last_state.name)
             print("Entering state: " + state.name)
             robot.say_text(
                 "Entering " + state.phonetic_name,
