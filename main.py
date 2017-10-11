@@ -131,13 +131,10 @@ class FindARCube:
                 difference = go_to_pose.pose - robot.pose
                 distance = np.sqrt(difference.position.x ** 2 + difference.position.y ** 2)
                 angle_diff = abs(difference.rotation.angle_z.degrees)
-                print(go_to_pose.pose.is_comparable(robot.pose), distance, angle_diff)
                 if distance <= stop_distance and angle_diff <= stop_angle:
                     go_to_pose.abort()
                     really_stop(robot)
-                time.sleep(.02)
             go_to_pose.wait_for_completed()
-            print(go_to_pose.result, go_to_pose.has_succeeded, go_to_pose.has_failed, go_to_pose.failure_reason)
             if go_to_pose.result == cozmo.action.ActionResults.CANCELLED_WHILE_RUNNING:
                 break
         cube.set_lights(LIGHT_CALM)
