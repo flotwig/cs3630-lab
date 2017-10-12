@@ -4,6 +4,7 @@ from boxAnnotator import BoxAnnotator
 from find_cube import *
 from helpers import *
 from time import sleep
+import math
 
 ### Zach Bloomquist & Taylor Hearn
 ### CS 3630 Lab 3
@@ -48,7 +49,7 @@ class FindARCube:
     def act(robot: cozmo.robot.Robot):
         adjust_thresholds()
         rotation_speed = 8
-        stop_distance = 80
+        stop_distance = 90
         stop_angle = 15
         cube = None
         while True:
@@ -56,10 +57,12 @@ class FindARCube:
             cube = robot.world.wait_for_observed_light_cube()
             cube.set_lights(LIGHT_EXCITED)
             really_stop(robot)
-            go_to_pose = robot.go_to_pose(cube.pose, in_parallel=True, relative_to_robot=False)
+            angle = cube.pose.rotation.angle_z
+            destination = cozmo.util.pose_z_angle(cube.pose.position.x - stop_distance * math.cos(angle.radians), cube.pose.position.y - stop_distance * math.sin(angle.radians), cube.pose.position.z, angle)
+            go_to_pose = robot.go_to_pose(destination, in_parallel=True, relative_to_robot=False)
             got_to_cube = False
             while cube.pose.is_accurate and not (go_to_pose.is_completed or go_to_pose.is_aborting):
-                difference = go_to_pose.pose - robot.pose
+                difference = cube.pose - robot.pose
                 distance = np.sqrt(difference.position.x ** 2 + difference.position.y ** 2)
                 angle_diff = abs(difference.rotation.angle_z.degrees)
                 if distance <= stop_distance and angle_diff <= stop_angle:
