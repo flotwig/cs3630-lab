@@ -18,9 +18,10 @@ def run(robot: cozmo.robot.Robot):
     robot.camera.image_stream_enabled = True
     robot.camera.color_image_enabled = True
     robot.camera.enable_auto_exposure = True
-    robot.set_robot_volume(.3)
 
+    robot.set_robot_volume(.3)
     robot.set_head_angle(cozmo.util.degrees(head_angle), in_parallel=True)
+    robot.world.get_light_cube(TARGET_CUBE_ID).set_lights(LIGHT_CALM)
 
     # state machine
     last_state = None
@@ -48,7 +49,7 @@ class FindARCube:
         adjust_thresholds()
         rotation_speed = 8
         stop_distance = 80
-        stop_angle = 10
+        stop_angle = 15
         cube = None
         while True:
             robot.drive_wheels(-1 * rotation_speed, rotation_speed)  # begin rotating
@@ -57,18 +58,20 @@ class FindARCube:
             really_stop(robot)
             go_to_pose = robot.go_to_pose(cube.pose, in_parallel=True, relative_to_robot=False)
             got_to_cube = False
-            while not (go_to_pose.is_completed or go_to_pose.is_aborting):
+            while cube.pose.is_accurate and not (go_to_pose.is_completed or go_to_pose.is_aborting):
                 difference = go_to_pose.pose - robot.pose
                 distance = np.sqrt(difference.position.x ** 2 + difference.position.y ** 2)
                 angle_diff = abs(difference.rotation.angle_z.degrees)
                 if distance <= stop_distance and angle_diff <= stop_angle:
                     if go_to_pose.is_running: # avoid weird exception
                         go_to_pose.abort()
-                    really_stop(robot)
                     got_to_cube = True
             go_to_pose.wait_for_completed()
             if got_to_cube:
+                really_stop(robot)
                 break
+            else:
+                cube.set_lights(LIGHT_ERROR)
         cube.set_lights(LIGHT_CALM)
         return FindColorCubeLeft
 

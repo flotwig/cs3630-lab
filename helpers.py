@@ -15,6 +15,10 @@ LIGHT_EXCITED = cozmo.lights.Light(on_color=COLOR_PINK, off_color=COLOR_LIME, on
                                    transition_on_period_ms=50, transition_off_period_ms=50)
 LIGHT_CALM = cozmo.lights.Light(on_color=cozmo.lights.blue, off_color=cozmo.lights.white, on_period_ms=300,
                                 off_period_ms=300, transition_on_period_ms=1000, transition_off_period_ms=1000)
+LIGHT_ERROR = cozmo.lights.red_light.flash()
+
+TARGET_CUBE_ID = cozmo.objects.LightCube1Id
+
 threshold_window_name = "Adjust Thresholds"
 lower_threshold = PINK_LOWER
 upper_threshold = PINK_UPPER
