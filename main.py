@@ -22,7 +22,7 @@ def run(robot: cozmo.robot.Robot):
 
     robot.set_robot_volume(.3)
     robot.set_head_angle(cozmo.util.degrees(head_angle), in_parallel=True)
-    robot.world.get_light_cube(TARGET_CUBE_ID).set_lights(LIGHT_CALM)
+    #robot.world.get_light_cube(TARGET_CUBE_ID).set_lights(LIGHT_CALM)
 
     # state machine
     last_state = None
@@ -36,9 +36,9 @@ def run(robot: cozmo.robot.Robot):
                 print("Leaving state: " + last_state.name)
             print("Entering state: " + state.name)
             robot.say_text(
-                "Entering " + state.phonetic_name,
+                "Enter " + state.phonetic_name,
                 use_cozmo_voice=False,
-                in_parallel=True)
+                in_parallel=True).wait_for_completed()
         last_state = state
         state = state.act(robot)
 
@@ -56,16 +56,16 @@ class FindARCube:
         
         robot.drive_wheels(-1 * rotation_speed, rotation_speed)  # begin rotating
         cube = robot.world.wait_for_observed_light_cube()
-        cube.set_lights(LIGHT_EXCITED)
+        #cube.set_lights(LIGHT_EXCITED)
         really_stop(robot)
         angle = cube.pose.rotation.angle_z
         destination = cozmo.util.pose_z_angle(cube.pose.position.x - cube_distance * math.cos(angle.radians), cube.pose.position.y - cube_distance * math.sin(angle.radians), cube.pose.position.z, angle)
         go_to_pose = robot.go_to_pose(destination, in_parallel=True, relative_to_robot=False)
         got_to_cube = False
-
+        
         go_to_pose.wait_for_completed()
         really_stop(robot)
-        cube.set_lights(LIGHT_CALM)
+        #cube.set_lights(LIGHT_CALM)
         return FindColorCubeLeft
 
 
