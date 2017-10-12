@@ -49,32 +49,22 @@ class FindARCube:
     def act(robot: cozmo.robot.Robot):
         adjust_thresholds()
         rotation_speed = 8
-        stop_distance = 90
+        cube_distance = 90
+        stop_distance = 5
         stop_angle = 15
         cube = None
-        while True:
-            robot.drive_wheels(-1 * rotation_speed, rotation_speed)  # begin rotating
-            cube = robot.world.wait_for_observed_light_cube()
-            cube.set_lights(LIGHT_EXCITED)
-            really_stop(robot)
-            angle = cube.pose.rotation.angle_z
-            destination = cozmo.util.pose_z_angle(cube.pose.position.x - stop_distance * math.cos(angle.radians), cube.pose.position.y - stop_distance * math.sin(angle.radians), cube.pose.position.z, angle)
-            go_to_pose = robot.go_to_pose(destination, in_parallel=True, relative_to_robot=False)
-            got_to_cube = False
-            while cube.pose.is_accurate and not (go_to_pose.is_completed or go_to_pose.is_aborting):
-                difference = cube.pose - robot.pose
-                distance = np.sqrt(difference.position.x ** 2 + difference.position.y ** 2)
-                angle_diff = abs(difference.rotation.angle_z.degrees)
-                if distance <= stop_distance and angle_diff <= stop_angle:
-                    if go_to_pose.is_running: # avoid weird exception
-                        go_to_pose.abort()
-                    got_to_cube = True
-            go_to_pose.wait_for_completed()
-            if got_to_cube:
-                really_stop(robot)
-                break
-            else:
-                cube.set_lights(LIGHT_ERROR)
+        
+        robot.drive_wheels(-1 * rotation_speed, rotation_speed)  # begin rotating
+        cube = robot.world.wait_for_observed_light_cube()
+        cube.set_lights(LIGHT_EXCITED)
+        really_stop(robot)
+        angle = cube.pose.rotation.angle_z
+        destination = cozmo.util.pose_z_angle(cube.pose.position.x - cube_distance * math.cos(angle.radians), cube.pose.position.y - cube_distance * math.sin(angle.radians), cube.pose.position.z, angle)
+        go_to_pose = robot.go_to_pose(destination, in_parallel=True, relative_to_robot=False)
+        got_to_cube = False
+
+        go_to_pose.wait_for_completed()
+        really_stop(robot)
         cube.set_lights(LIGHT_CALM)
         return FindColorCubeLeft
 
