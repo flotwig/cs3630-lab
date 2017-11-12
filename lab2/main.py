@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 #!c:/Python35/python3.exe -u
-from boxAnnotator import BoxAnnotator
-from find_cube import *
-from helpers import *
-from time import sleep
 import math
+
+from boxAnnotator import BoxAnnotator
+from helpers import *
+
+from lab2.find_cube import *
+
 
 ### Zach Bloomquist & Taylor Hearn
 ### CS 3630 Lab 3

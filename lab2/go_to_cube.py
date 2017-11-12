@@ -1,15 +1,10 @@
 #!/usr/bin/env python3
 #!c:/Python35/python3.exe -u
-import asyncio
 import sys
-import cv2
-import numpy as np
-import cozmo
-import time
-import os
-from glob import glob
 
-from find_cube import *
+import cozmo
+
+from lab2.find_cube import *
 
 ### Zach Bloomquist & Taylor Hearn
 ### CS 3630 Lab 2
