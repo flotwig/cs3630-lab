@@ -4,7 +4,7 @@ from utils import *
 from setting import *
 import numpy as np
 
-ALPHA_1, ALPHA_2, ALPHA_3, ALPHA_4 = [0, 0, 0, 0]
+ALPHA_1, ALPHA_2, ALPHA_3, ALPHA_4 = [0.1, 0.1, 0.1, 0.1]
 
 # ------------------------------------------------------------------------
 def motion_update(particles, odom):
@@ -57,6 +57,10 @@ def measurement_update(particles, measured_marker_list, grid):
     for particle in particles:
         # identify pairings between markers seen by particle & particles cozmo knows of
         markers_visible_to_particle = particle.read_markers(grid)
+        # if the particle is outside map or in an obstacle, remove it
+        if not grid.is_free(particle.x, particle.y):
+            probabilities.append(0)
+            continue
         found_markers = []
         for measured_marker in measured_marker_list:
             # find closest marker out of ones visible to particle
@@ -69,19 +73,17 @@ def measurement_update(particles, measured_marker_list, grid):
                     min_distance = marker_distance
                     min_marker = visible_marker
             if i is not None:
-                # store pairing of [measured_marker, closest from particle marker] for later
                 markers_visible_to_particle.pop(i)
                 found_markers.append([measured_marker, min_marker])
-                # remove marker from visible list so it won't be reused later
         # calculate weight of this particle
         prob = 1.0
         for marker in found_markers:
             measured_marker, min_marker = marker
             dist = grid_distance(measured_marker[0], measured_marker[1], min_marker[0], min_marker[1])
             angle = diff_heading_deg(measured_marker[2], min_marker[2])
-            prob *= math.e ** (0 - ((dist**2)/(2*MARKER_TRANS_SIGMA**2) + (angle**2)/(2*MARKER_ROT_SIGMA**2)))
+            prob *= math.e ** (0 - ((dist**2)/(2*(MARKER_TRANS_SIGMA**2)) + (angle**2)/(2*(MARKER_ROT_SIGMA**2))))
         probabilities.append(prob)
     # normalize probabilities and choose particles
-    probabilities = np.divide(probabilities, [np.sum(probabilities)])
+    probabilities = np.divide(probabilities, np.sum(probabilities))
     measured_particles = np.random.choice(particles, p=probabilities, size=5000)
     return measured_particles
