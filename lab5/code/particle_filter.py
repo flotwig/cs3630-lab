@@ -19,7 +19,7 @@ def motion_update(particles, odom):
         Returns: the list of particle represents belief \tilde{p}(x_{t} | u_{t})
                 after motion update
     """
-    odom = add_odometry_noise(odom, ODOM_HEAD_SIGMA, ODOM_TRANS_SIGMA) # necessary?
+    #odom = add_odometry_noise(odom, ODOM_HEAD_SIGMA, ODOM_TRANS_SIGMA) # necessary?
     prev_odom, cur_odom = odom
     diff_odom = np.subtract(cur_odom, prev_odom)
     delta_rot1 = diff_heading_deg(np.arctan2(diff_odom[1], diff_odom[0]), prev_odom[2])
