@@ -5,6 +5,9 @@ from setting import *
 from copy import copy
 import numpy as np
 
+### Zach Bloomquist & Taylor Hearn
+### CS 3630 Lab 5
+
 ALPHA_1, ALPHA_2, ALPHA_3, ALPHA_4 = [.05, .05, .02, .02]
 MIN_PROBABILITY = 0.1  # particles with p < this will be removed
 NEW_PARTICLE_WEIGHT = 5000000  # new random particle weight = (max_prob)/NEW_PARTICLE_WEIGHT
