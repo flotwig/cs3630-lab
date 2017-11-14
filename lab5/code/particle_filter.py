@@ -7,7 +7,7 @@ import numpy as np
 
 ALPHA_1, ALPHA_2, ALPHA_3, ALPHA_4 = [.05, .05, .02, .02]
 MIN_PROBABILITY = 0.1  # particles with p < this will be removed
-NEW_PARTICLE_WEIGHT = 5000  # new random particle weight = (max_prob)/NEW_PARTICLE_WEIGHT
+NEW_PARTICLE_WEIGHT = 5000000  # new random particle weight = (max_prob)/NEW_PARTICLE_WEIGHT
 # ------------------------------------------------------------------------
 def motion_update(particles, odom):
     """ Particle filter motion upda
@@ -32,6 +32,8 @@ def motion_update(particles, odom):
     delta_trans = np.sqrt((prev_odom[0] - cur_odom[0])**2 + (prev_odom[1] - cur_odom[1])**2)
     # rot2: angle robot should turn when reaching destination to match heading
     delta_rot2 = proj_angle_deg(cur_odom[2] - prev_odom[2] - delta_rot1)
+    global moved
+    moved = delta_rot1 + delta_trans + delta_rot2 > 0.1
     for i, particle in enumerate(particles):
         # add gaussian noise to deltas
         pdelta_rot1 = delta_rot1 - random.gauss(0.0, ALPHA_1 * delta_rot1 + ALPHA_2 * delta_trans)
@@ -65,14 +67,27 @@ def measurement_update(particles, measured_marker_list, grid):
     #return particles[0:1]
     return measurement_update_doink(particles, measured_marker_list, grid)
 
+moved = True
+last_measured_marker_list = None
 def measurement_update_doink(particles, measured_marker_list, grid):
+    new_info = False
+    global last_measured_marker_list, moved
+    if last_measured_marker_list is not None and len(last_measured_marker_list) == len(measured_marker_list) and not moved:
+        for i, marker in enumerate(measured_marker_list):
+            last_marker = last_measured_marker_list[i]
+            if marker[0] != last_marker[0] or marker[1] != last_marker[1] or marker[2] != last_marker[2]:
+                new_info = True
+                break
+        last_measured_marker_list = list(measured_marker_list)
+        if not new_info: return particles
+        
     probabilities = []
     if len(measured_marker_list) == 0:
         return particles
     for j, particle in enumerate(particles):  # for each particle:
         # Obtain the list of localization markers that a robot would see if it were really at this particle
         markers_visible_to_particle = particle.read_markers(grid)
-        if not grid.is_free(particle.x, particle.y):
+        if not grid.is_free(particle.x, particle.y) or len(measured_marker_list) != len(markers_visible_to_particle):
             # particles within an obstacle or outside the map should have a weight of 0
             probabilities.append(0)
             continue
@@ -108,11 +123,16 @@ def measurement_update_doink(particles, measured_marker_list, grid):
             particles[i] = Particle.create_random(1, grid)[0]
     # normalize probabilities and choose particles
     probabilities = np.divide(probabilities, [np.sum(probabilities)])
-    measured_particles = np.random.choice(particles, p=probabilities, size=5000)
+    measured_particles = np.random.choice(particles, p=probabilities, size=10000)
     for i, particle in enumerate(measured_particles):
         measured_particles[i] = Particle(particle.x + random.gauss(0, MARKER_TRANS_SIGMA**2), particle.y + random.gauss(0, MARKER_TRANS_SIGMA**2), particle.h + random.gauss(0, 9))
     if len(measured_particles) == 0:
         return particles
-    return measured_particles
+    rand_particles = list()
+    for x in range(1, grid.width, 1):
+        for y in range(1, grid.height, 1):
+            if grid.is_free(x, y):
+                rand_particles.append(Particle(x, y, random.uniform(0, 360)))
+    return np.concatenate((rand_particles, measured_particles))
 
 
