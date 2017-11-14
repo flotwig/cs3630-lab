@@ -5,9 +5,9 @@ from setting import *
 from copy import copy
 import numpy as np
 
-ALPHA_1, ALPHA_2, ALPHA_3, ALPHA_4 = [.1, .1, .05, .05]
-MIN_PROBABILITY = 0.2 # particles with p < this will be removed
-NEW_PARTICLE_WEIGHT = 5000  # new random particle weight = (max_prob)/NEW_PARTICLE_WEIGHT
+ALPHA_1, ALPHA_2, ALPHA_3, ALPHA_4 = [.02, .02, .02, .02]
+MIN_PROBABILITY = 0.7 # particles with p < this will be removed
+NEW_PARTICLE_WEIGHT = 5000000000  # new random particle weight = (max_prob)/NEW_PARTICLE_WEIGHT
 # ------------------------------------------------------------------------
 def motion_update(particles, odom):
     """ Particle filter motion upda
@@ -27,16 +27,16 @@ def motion_update(particles, odom):
     if np.array_equal(prev_odom, cur_odom):
         return particles
     # rot1: angle robot needs to turn before moving
-    delta_rot1 = proj_angle_deg(np.degrees(np.arctan2(cur_odom[1] - prev_odom[1], cur_odom[0] - prev_odom[0]))) - prev_odom[2]
+    delta_rot1 = diff_heading_deg(np.degrees(np.arctan2(cur_odom[1] - prev_odom[1], cur_odom[0] - prev_odom[0])), prev_odom[2])
     # trans: distance robot should traverse forward after rotating
     delta_trans = np.sqrt((prev_odom[0] - cur_odom[0])**2 + (prev_odom[1] - cur_odom[1])**2)
     # rot2: angle robot should turn when reaching destination to match heading
     delta_rot2 = proj_angle_deg(cur_odom[2] - prev_odom[2] - delta_rot1)
     for i, particle in enumerate(particles):
         # add gaussian noise to deltas
-        pdelta_rot1 = delta_rot1 - random.gauss(0.0, ALPHA_1 * delta_rot1 + ALPHA_2 * delta_trans)**2
-        pdelta_trans = delta_trans - random.gauss(0.0, ALPHA_3 * delta_trans + ALPHA_4 * (delta_rot1 + delta_rot2))**2
-        pdelta_rot2 = delta_rot2 - random.gauss(0.0, ALPHA_1 * delta_rot2 + ALPHA_2 * delta_trans)**2
+        pdelta_rot1 = delta_rot1 - random.gauss(0.0, ALPHA_1 * delta_rot1 + ALPHA_2 * delta_trans)
+        pdelta_trans = delta_trans - random.gauss(0.0, ALPHA_3 * delta_trans + ALPHA_4 * (delta_rot1 + delta_rot2))
+        pdelta_rot2 = delta_rot2 - random.gauss(0.0, ALPHA_1 * delta_rot2 + ALPHA_2 * delta_trans)
         particle.move(pdelta_rot1, pdelta_trans, pdelta_rot2)
         particles[i] = Particle(particle.x, particle.y, heading=proj_angle_deg(particle.h))  # need a new object, i think?
     return particles
@@ -60,10 +60,10 @@ def measurement_update(particles, measured_marker_list, grid):
                 after measurement update
     """
     measured_particles = []
-    import time
-    time.sleep(.5)
-    return particles[0:1]
-    #return measurement_update_doink(particles, measured_marker_list, grid)
+    #import time
+    #time.sleep(.5)
+    #return particles[0:1]
+    return measurement_update_doink(particles, measured_marker_list, grid)
 
 def measurement_update_doink(particles, measured_marker_list, grid):
     probabilities = []
@@ -102,13 +102,13 @@ def measurement_update_doink(particles, measured_marker_list, grid):
     max_prob = max(probabilities)
     for (i, p) in enumerate(probabilities):
         if p < MIN_PROBABILITY:
-            probabilities[i] = max_prob/NEW_PARTICLE_WEIGHT
+            probabilities[i] = 0
             particles[i] = Particle.create_random(1, grid)[0]
     # normalize probabilities and choose particles
     probabilities = np.divide(probabilities, [np.sum(probabilities)])
     measured_particles = np.random.choice(particles, p=probabilities, size=5000)
     for i, particle in enumerate(measured_particles):
-        measured_particles[i] = Particle(particle.x + random.gauss(0, MARKER_TRANS_SIGMA**2), particle.y + random.gauss(0, MARKER_TRANS_SIGMA**2), particle.h + random.gauss(0, 9))
+        measured_particles[i] = Particle(particle.x + random.gauss(0, MARKER_TRANS_SIGMA**2), particle.y + random.gauss(0, MARKER_TRANS_SIGMA**2), particle.h + random.gauss(0, 1))
     if len(measured_particles) == 0:
         return particles
     return measured_particles
