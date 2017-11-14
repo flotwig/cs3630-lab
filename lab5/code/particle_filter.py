@@ -85,13 +85,18 @@ def measurement_update(particles, measured_marker_list, grid):
                 found_markers.append([measured_marker, min_marker, min_distance])
         # calculate weight of this particle based on how likely it is to see the markers the robot sees
         prob = 1.0
+        if len(found_markers) == 0:
+            prob = 0.0
         for marker in found_markers:
             measured_marker, min_marker, dist = marker
-            angle = diff_heading_deg(measured_marker[2], min_marker[2])
+            angle = diff_heading_deg(measured_marker[2], proj_angle_deg(min_marker[2]))
             prob *= math.exp(0 - ((dist**2)/(2*(MARKER_TRANS_SIGMA**2)) + (angle**2)/(2*(MARKER_ROT_SIGMA**2))))
-        if prob < MIN_PROBABILITY:
-            prob = 0  # eliminating any particles with very low probabilities and replacing them with random samples
         probabilities.append(prob)
+    # replace improbables with new particles
+    for i, p in enumerate(probabilities):
+        if p < MIN_PROBABILITY:
+            probabilities[i] = 0
+            particles[i] = Particle.create_random(1, grid)[0]
     # normalize probabilities and choose particles
     probabilities = np.divide(probabilities, [np.sum(probabilities)])
     measured_particles = np.random.choice(particles, p=probabilities, size=4975)
