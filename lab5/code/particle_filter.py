@@ -27,18 +27,18 @@ def motion_update(particles, odom):
     if np.array_equal(prev_odom, cur_odom):
         return particles
     # rot1: angle robot needs to turn before moving
-    delta_rot1 = np.degrees(np.arctan2(cur_odom[1] - prev_odom[1], cur_odom[0] - prev_odom[0])) - prev_odom[2]
+    delta_rot1 = proj_angle_deg(np.degrees(np.arctan2(cur_odom[1] - prev_odom[1], cur_odom[0] - prev_odom[0]))) - prev_odom[2]
     # trans: distance robot should traverse forward after rotating
     delta_trans = np.sqrt((prev_odom[0] - cur_odom[0])**2 + (prev_odom[1] - cur_odom[1])**2)
     # rot2: angle robot should turn when reaching destination to match heading
-    delta_rot2 = cur_odom[2] - prev_odom[2] - delta_rot1
+    delta_rot2 = proj_angle_deg(cur_odom[2] - prev_odom[2] - delta_rot1)
     for i, particle in enumerate(particles):
         # add gaussian noise to deltas
         pdelta_rot1 = delta_rot1 - random.gauss(0.0, ALPHA_1 * delta_rot1 + ALPHA_2 * delta_trans)**2
         pdelta_trans = delta_trans - random.gauss(0.0, ALPHA_3 * delta_trans + ALPHA_4 * (delta_rot1 + delta_rot2))**2
         pdelta_rot2 = delta_rot2 - random.gauss(0.0, ALPHA_1 * delta_rot2 + ALPHA_2 * delta_trans)**2
         particle.move(pdelta_rot1, pdelta_trans, pdelta_rot2)
-        particles[i] = Particle(particle.x, particle.y, heading=particle.h)  # need a new object, i think?
+        particles[i] = Particle(particle.x, particle.y, heading=proj_angle_deg(particle.h))  # need a new object, i think?
     return particles
 
 # ------------------------------------------------------------------------
@@ -60,6 +60,12 @@ def measurement_update(particles, measured_marker_list, grid):
                 after measurement update
     """
     measured_particles = []
+    import time
+    time.sleep(.5)
+    return particles[0:1]
+    #return measurement_update_doink(particles, measured_marker_list, grid)
+
+def measurement_update_doink(particles, measured_marker_list, grid):
     probabilities = []
     for j, particle in enumerate(particles):  # for each particle:
         # Obtain the list of localization markers that a robot would see if it were really at this particle
