@@ -100,6 +100,4 @@ def measurement_update(particles, measured_marker_list, grid):
     # normalize probabilities and choose particles
     probabilities = np.divide(probabilities, [np.sum(probabilities)])
     measured_particles = np.random.choice(particles, p=probabilities, size=4975)
-    # fill in the remaining particles with random ones - better way to do this? uniqify measured particles?
-    new_particles = Particle.create_random(5000 - len(measured_particles), grid)
-    return np.concatenate([measured_particles, new_particles])
+    return measured_particles
