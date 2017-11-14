@@ -7,10 +7,9 @@ import numpy as np
 # ## Zach Bloomquist & Taylor Hearn
 # ## CS 3630 Lab 5
 
-ALPHA_1, ALPHA_2, ALPHA_3, ALPHA_4 = [.02, .02, .02, .02]
+ALPHA_1, ALPHA_2, ALPHA_3, ALPHA_4 = [.01, .01, .01, .01]
 MIN_PROBABILITY = 0.1  # particles with p < this will be removed. increase to find a fix faster, but lowers stability
-NUM_PARTICLES = 5000
-NEW_PARTICLE_WEIGHT = NUM_PARTICLES * 4  # inverted - the higher, the less new random particles are chosen
+NEW_PARTICLE_WEIGHT = PARTICLE_COUNT * 4  # inverted - the higher, the less new random particles are chosen
 
 
 # ------------------------------------------------------------------------
@@ -51,6 +50,7 @@ def motion_update(particles, odom):
 
 moved = True
 last_measured_marker_list = None
+
 
 # ------------------------------------------------------------------------
 def measurement_update(particles, measured_marker_list, grid):
@@ -131,16 +131,16 @@ def measurement_update(particles, measured_marker_list, grid):
     max_prob = max(probabilities)
     if max_prob < 1 / len(probabilities):
         return particles
-    measured_particles = np.random.choice(particles, p=probabilities, size=NUM_PARTICLES)
+    measured_particles = np.random.choice(particles, p=probabilities, size=PARTICLE_COUNT)
     # add some noise so that particles sampled multiple times won't be overlaid
     for i, particle in enumerate(measured_particles):
-        h = particle.h + random.gauss(0, MARKER_ROT_SIGMA)
+        h = proj_angle_deg(particle.h + random.gauss(0, MARKER_ROT_SIGMA**2))
         x = particle.x + math.cos(math.radians(h)) * random.gauss(0, MARKER_TRANS_SIGMA**2)
         y = particle.y + math.sin(math.radians(h)) * random.gauss(0, MARKER_TRANS_SIGMA**2)
         measured_particles[i] = Particle(x, y, h)
     if len(measured_particles) == 0:
         return particles
-    # Alternate method for adding random particles
+    # Alternate method for adding random particles - adds noise
     # rand_particles = list()
     # for x in range(1, grid.width, 1):
     #     for y in range(1, grid.height, 1):
