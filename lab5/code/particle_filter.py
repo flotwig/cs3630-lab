@@ -89,7 +89,7 @@ def measurement_update(particles, measured_marker_list, grid):
         for marker in found_markers:
             measured_marker, min_marker, dist = marker
             angle = diff_heading_deg(measured_marker[2], min_marker[2])
-            prob *= math.e ** (0 - ((dist**2)/(2*(MARKER_TRANS_SIGMA**2)) + (angle**2)/(2*(MARKER_ROT_SIGMA**2))))
+            prob = math.exp(0 - ((dist**2)/(2*(MARKER_TRANS_SIGMA**2)) + (angle**2)/(2*(MARKER_ROT_SIGMA**2))))
         if prob < MIN_PROBABILITY:
             prob = 0  # eliminating any particles with very low probabilities and replacing them with random samples
         probabilities.append(prob)
