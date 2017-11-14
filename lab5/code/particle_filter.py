@@ -134,9 +134,9 @@ def measurement_update(particles, measured_marker_list, grid):
     measured_particles = np.random.choice(particles, p=probabilities, size=PARTICLE_COUNT)
     # add some noise so that particles sampled multiple times won't be overlaid
     for i, particle in enumerate(measured_particles):
-        h = proj_angle_deg(particle.h + random.gauss(0, MARKER_ROT_SIGMA**2))
-        x = particle.x + math.cos(math.radians(h)) * random.gauss(0, MARKER_TRANS_SIGMA**2)
-        y = particle.y + math.sin(math.radians(h)) * random.gauss(0, MARKER_TRANS_SIGMA**2)
+        h = proj_angle_deg(particle.h + random.gauss(0, MARKER_ROT_SIGMA))
+        x = particle.x + math.cos(math.radians(h)) * random.gauss(0, MARKER_TRANS_SIGMA)
+        y = particle.y + math.sin(math.radians(h)) * random.gauss(0, MARKER_TRANS_SIGMA)
         measured_particles[i] = Particle(x, y, h)
     if len(measured_particles) == 0:
         return particles
