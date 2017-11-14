@@ -2,6 +2,7 @@ from grid import *
 from particle import Particle
 from utils import *
 from setting import *
+from copy import copy
 import numpy as np
 
 ALPHA_1, ALPHA_2, ALPHA_3, ALPHA_4 = [0.01, 0.01, 0.01, 0.01]
@@ -31,12 +32,13 @@ def motion_update(particles, odom):
     delta_trans = np.sqrt((cur_odom[1] - prev_odom[1])**2 + (cur_odom[0] - prev_odom[0])**2)
     # rot2: angle robot should turn when reaching destination to match heading
     delta_rot2 = cur_odom[2] - prev_odom[2] - delta_rot1
-    for particle in particles:
+    for i, particle in enumerate(particles):
         # add gaussian noise to deltas
-        pdelta_rot1 = delta_rot1 - random.gauss(0.0, ALPHA_1 * delta_rot1 + ALPHA_2 * delta_trans)
-        pdelta_trans = delta_trans - random.gauss(0.0, ALPHA_3 * delta_trans + ALPHA_4 * (delta_rot1 + delta_rot2))
-        pdelta_rot2 = delta_rot2 - random.gauss(0.0, ALPHA_1 * delta_rot2 + ALPHA_2 * delta_trans)
+        pdelta_rot1 = delta_rot1 - random.gauss(0.0, ALPHA_1 * delta_rot1 + ALPHA_2 * delta_trans)**2
+        pdelta_trans = delta_trans - random.gauss(0.0, ALPHA_3 * delta_trans + ALPHA_4 * (delta_rot1 + delta_rot2))**2
+        pdelta_rot2 = delta_rot2 - random.gauss(0.0, ALPHA_1 * delta_rot2 + ALPHA_2 * delta_trans)**2
         particle.move(pdelta_rot1, pdelta_trans, pdelta_rot2)
+        particles[i] = Particle(particle.x, particle.y, particle.h)  # need a new object, i think?
     return particles
 
 # ------------------------------------------------------------------------
