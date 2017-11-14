@@ -5,9 +5,9 @@ from setting import *
 from copy import copy
 import numpy as np
 
-ALPHA_1, ALPHA_2, ALPHA_3, ALPHA_4 = [.02, .02, .02, .02]
-MIN_PROBABILITY = 0.7 # particles with p < this will be removed
-NEW_PARTICLE_WEIGHT = 5000000000  # new random particle weight = (max_prob)/NEW_PARTICLE_WEIGHT
+ALPHA_1, ALPHA_2, ALPHA_3, ALPHA_4 = [.05, .05, .02, .02]
+MIN_PROBABILITY = 0.1  # particles with p < this will be removed
+NEW_PARTICLE_WEIGHT = 5000  # new random particle weight = (max_prob)/NEW_PARTICLE_WEIGHT
 # ------------------------------------------------------------------------
 def motion_update(particles, odom):
     """ Particle filter motion upda
@@ -67,6 +67,8 @@ def measurement_update(particles, measured_marker_list, grid):
 
 def measurement_update_doink(particles, measured_marker_list, grid):
     probabilities = []
+    if len(measured_marker_list) == 0:
+        return particles
     for j, particle in enumerate(particles):  # for each particle:
         # Obtain the list of localization markers that a robot would see if it were really at this particle
         markers_visible_to_particle = particle.read_markers(grid)
@@ -102,13 +104,13 @@ def measurement_update_doink(particles, measured_marker_list, grid):
     max_prob = max(probabilities)
     for (i, p) in enumerate(probabilities):
         if p < MIN_PROBABILITY:
-            probabilities[i] = 0
+            probabilities[i] = max_prob/NEW_PARTICLE_WEIGHT
             particles[i] = Particle.create_random(1, grid)[0]
     # normalize probabilities and choose particles
     probabilities = np.divide(probabilities, [np.sum(probabilities)])
     measured_particles = np.random.choice(particles, p=probabilities, size=5000)
     for i, particle in enumerate(measured_particles):
-        measured_particles[i] = Particle(particle.x + random.gauss(0, MARKER_TRANS_SIGMA**2), particle.y + random.gauss(0, MARKER_TRANS_SIGMA**2), particle.h + random.gauss(0, 1))
+        measured_particles[i] = Particle(particle.x + random.gauss(0, MARKER_TRANS_SIGMA**2), particle.y + random.gauss(0, MARKER_TRANS_SIGMA**2), particle.h + random.gauss(0, 9))
     if len(measured_particles) == 0:
         return particles
     return measured_particles
