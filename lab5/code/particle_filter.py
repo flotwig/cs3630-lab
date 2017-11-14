@@ -36,10 +36,7 @@ def motion_update(particles, odom):
         pdelta_rot1 = delta_rot1 - random.gauss(0.0, ALPHA_1 * delta_rot1 + ALPHA_2 * delta_trans)
         pdelta_trans = delta_trans - random.gauss(0.0, ALPHA_3 * delta_trans + ALPHA_4 * (delta_rot1 + delta_rot2))
         pdelta_rot2 = delta_rot2 - random.gauss(0.0, ALPHA_1 * delta_rot2 + ALPHA_2 * delta_trans)
-        # extrapolate x, y, and h from deltas
-        particle.x += pdelta_trans * np.cos(np.radians(particle.h + pdelta_rot1))
-        particle.y += pdelta_trans * np.sin(np.radians(particle.h + pdelta_rot1))
-        particle.h = particle.h + pdelta_rot1 + pdelta_rot2
+        particle.move(pdelta_rot1, pdelta_trans, pdelta_rot2)
     return particles
 
 # ------------------------------------------------------------------------
