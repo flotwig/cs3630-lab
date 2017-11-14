@@ -10,14 +10,14 @@ from setting import *
 from particle_filter import *
 from utils import *
 
-#  Map_filename = "map_arena.json"
-Map_filename = "map_test.json"
+Map_filename = "map_arena.json"
+#Map_filename = "map_test.json"
 
 Use_GUI = True
 
 Robot_speed = 0.5
 Robot_init_pose = (6, 3, 0)
-Move_circular = True
+Move_circular = False
 Dh_circular = 10
 
 # move robot just forward
