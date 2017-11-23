@@ -28,6 +28,12 @@ last_pose = cozmo.util.Pose(0,0,0,angle_z=cozmo.util.Angle(degrees=0))
 # goal location for the robot to drive to, (x, y, theta)
 goal = (6,10,0)
 
+# pose of the robot in the grid coord frame
+robot_grid_pose = None
+
+# particle filter for the robot to localize
+particle_filter = None
+
 # map
 Map_filename = "map_arena.json"
 
@@ -116,10 +122,11 @@ class ParticleFilter:
         m_x, m_y, m_h, m_confident = compute_mean_pose(self.particles)
         return (m_x, m_y, m_h, m_confident)
 
-
+        
 async def run(robot: cozmo.robot.Robot):
     global last_pose
     global grid, gui
+    global particle_filter
 
     # start streaming
     robot.camera.image_stream_enabled = True
@@ -129,9 +136,73 @@ async def run(robot: cozmo.robot.Robot):
 
     ############################################################################
     ######################### YOUR CODE HERE####################################
-
+    
+    last_pose = robot.pose
+    
+    state = Localize()
+    while state is not None:
+        state = state.act(robot)
+    
     ############################################################################
+    
 
+class Localize:
+    def act(robot: cozmo.robot.Robot):
+        global particle_filter, last_pose, robot_grid_pose
+        
+        # define event handler that returns Kidnapped when robot picked up
+        
+        # start rotating
+        rotation_speed = 8
+        robot.drive_wheels(-1 * rotation_speed, rotation_speed)
+        
+        # reset particle filter
+        particle_filter = ParticleFilter(grid)
+        
+        confident = False
+        result = None
+        while not confident:
+            odom = compute_odometry(robot.pose)
+            last_pose = robot.pose
+            markers = image_processing(robot)
+            result = particle_filter.update(odom, markers)
+            confident = result[3]
+            
+        robot_grid_pose = (result[0], result[1], result[2])
+        
+        return Navigate()
+
+        
+class Navigate:
+    def act(robot: cozmo.robot.Robot):
+        global robot_grid_pose, goal
+        
+        # define event handler that returns Kidnapped when robot picked up
+        
+        x = robot.pose.position.x
+        y = robot.pose.position.y
+        heading = robot.pose.rotation.angle_z.degrees
+        
+        goal_x = x + goal[0] - robot_grid_pose[0]
+        goal_y = y + goal[1] - robot_grid_pose[1]
+        goal_heading = proj_angle_deg(heading + goal[2] - robot_grid_pose[2])
+        goal_pose = cozmo.util.Pose(goal_x, goal_y, 0,angle_z=cozmo.util.Angle(degrees=goal_heading))
+        robot.go_to_pose(goal_pose)
+
+        
+class Kidnapped:
+    def act(robot: cozmo.robot.Robot):
+        if robot.is_picked_up:
+            return Kidnapped()
+        else:
+            return Localize()
+            
+            
+# for some reason stop_all_motors leaves cozmo wiggling, this is to circumvent that
+def really_stop(robot: cozmo.robot.Robot):
+    robot.stop_all_motors()
+    robot.drive_wheel_motors(0, 0)
+            
 
 class CozmoThread(threading.Thread):
     def __init__(self):
