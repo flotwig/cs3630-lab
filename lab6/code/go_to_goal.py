@@ -229,11 +229,15 @@ async def Kidnapped(robot: cozmo.robot.Robot):
     global kidnapped, last_origin, current_anim
     
     really_stop(robot)
-    if not current_anim:
-        await play_animation(robot, cozmo.anim.Triggers.CodeLabUnhappy).wait_for_completed()
+    
+    wait_time = 0
+    while current_anim and wait_time < 3:
+        time.sleep(0.01)
+        wait_time += 0.01
+    await play_animation(robot, cozmo.anim.Triggers.CodeLabUnhappy).wait_for_completed()
     
     # you can add a 3 second wait and assume it has been put back down in that time
-    time.sleep(3)
+    time.sleep(max(3 - wait_time, 0.01))
     last_origin = robot.pose.origin_id
     kidnapped = False
     return Localize
@@ -245,9 +249,12 @@ async def Arrived(robot: cozmo.robot.Robot):
     
     if kidnapped:
         return Kidnapped
-            
-    if not current_anim:
-        await play_animation(robot, cozmo.anim.Triggers.CodeLabSurprise).wait_for_completed()
+    
+    wait_time = 0
+    while current_anim and wait_time < 3:
+        time.sleep(0.01)
+        wait_time += 0.01
+    await play_animation(robot, cozmo.anim.Triggers.CodeLabSurprise).wait_for_completed()
         
     while True:
         if kidnapped:
