@@ -7,15 +7,16 @@ from numpy.linalg import inv
 import threading
 import time
 import asyncio
-
 from ar_markers.hamming.detect import detect_markers
-
 from grid import CozGrid
 from gui import GUIWindow
 from particle import Particle, Robot
 from setting import *
 from particle_filter import *
 from utils import *
+
+# ## Zach Bloomquist & Taylor Hearn
+# ## CS 3630 Lab 6
 
 # camera params
 camK = np.matrix([[295, 0, 160], [0, 295, 120], [0, 0, 1]], dtype='float32')
@@ -172,12 +173,14 @@ async def Localize(robot: cozmo.robot.Robot):
 
     confident = False
     result = None
+    times_confident = 0
     while not confident and not kidnapped and start_origin is robot.pose.origin_id:
         odom = compute_odometry(robot.pose)
         last_pose = robot.pose
         markers = cvt_2Dmarker_measurements(await asyncio.ensure_future(image_processing(robot)))
         result = particle_filter.update(odom, markers)
-        confident = result[3]
+        times_confident = (times_confident + 1) * result[3]  # times result[3] has been true in a row
+        confident = times_confident > 10
         gui.robot = Particle(result[0], result[1], result[2])
         gui.show_particles(particle_filter.particles)
         gui.show_mean(result[0], result[1], result[2], result[3])
@@ -228,7 +231,7 @@ async def Navigate(robot: cozmo.robot.Robot):
 
 async def Kidnapped(robot: cozmo.robot.Robot):
     print("Kidnapped")
-    global kidnapped, last_origin
+    global kidnapped, last_origin, current_anim
     
     really_stop(robot)
     if not current_anim:
@@ -242,6 +245,7 @@ async def Kidnapped(robot: cozmo.robot.Robot):
 
         
 async def Arrived(robot: cozmo.robot.Robot):
+    global kidnapped
     print("Arrived")
     
     if kidnapped:
