@@ -71,7 +71,7 @@ def cvt_2Dmarker_measurements(ar_markers):
         R_2_2p = np.matrix([[0,-1,0], [0,0,-1], [1,0,0]])
         R_2p_1p = np.matmul(np.matmul(inv(R_2_2p), inv(R_1_2)), R_1_1p)
         #print('\n', R_2p_1p)
-        yaw = -np.atan2(R_2p_1p[2,0], R_2p_1p[0,0])
+        yaw = -np.arctan2(R_2p_1p[2,0], R_2p_1p[0,0])
         
         x, y = m.tvec[2][0] + 0.5, -m.tvec[0][0]
         # print('x =', x, 'y =', y,'theta =', yaw)
@@ -164,10 +164,10 @@ async def Localize(robot: cozmo.robot.Robot):
     # define event handler that returns Kidnapped when robot picked up
     async def handle_kidnapping(e: cozmo.robot.EvtRobotStateUpdated, robot: cozmo.robot.Robot, **kwargs):
         nonlocal kidnapped
-        play_animation(robot, cozmo.anim.Triggers.CodeLabUnhappy).wait_for_completed()
-        if robot.is_picked_up:
+        if robot.is_picked_up and not kidnapped:
             kidnapped = True
             really_stop(robot)
+            await play_animation(robot, cozmo.anim.Triggers.CodeLabUnhappy).wait_for_completed()
     robot.world.add_event_handler(cozmo.robot.EvtRobotStateUpdated, handle_kidnapping)
 
     confident = False
