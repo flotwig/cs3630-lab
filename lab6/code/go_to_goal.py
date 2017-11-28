@@ -139,21 +139,21 @@ async def run(robot: cozmo.robot.Robot):
     
     last_pose = robot.pose
     
-    state = Localize()
+    state = Localize
     while state is not None:
-        state = state.act(robot)
+        state = await state.act(robot)
     
     ############################################################################
     
 
 class Localize:
-    def act(robot: cozmo.robot.Robot):
+    async def act(robot: cozmo.robot.Robot):
         global particle_filter, last_pose, robot_grid_pose
         kidnapped = False
         
         # start rotating
         rotation_speed = 8
-        robot.drive_wheels(-1 * rotation_speed, rotation_speed)
+        await robot.drive_wheels(-1 * rotation_speed, rotation_speed)
         
         # reset particle filter
         particle_filter = ParticleFilter(grid)
@@ -164,27 +164,27 @@ class Localize:
             if robot.is_picked_up:
                 kidnapped = True
                 really_stop(robot)
-        robot.world.add_event_handler(cozmo.robots.EvtRobotStateUpdated, handle_kidnapping)
+        robot.world.add_event_handler(cozmo.robot.EvtRobotStateUpdated, handle_kidnapping)
         
         confident = False
         result = None
         while not confident and not kidnapped:
             odom = compute_odometry(robot.pose)
             last_pose = robot.pose
-            markers = image_processing(robot)
+            markers = cvt_2Dmarker_measurements(await image_processing(robot))
             result = particle_filter.update(odom, markers)
             confident = result[3]
             
         robot_grid_pose = (result[0], result[1], result[2])
         
         if kidnapped:
-            return Kidnapped()
+            return Kidnapped
         else:
-            return Navigate()
+            return Navigate
 
         
 class Navigate:
-    def act(robot: cozmo.robot.Robot):
+    async def act(robot: cozmo.robot.Robot):
         global robot_grid_pose, goal
         kidnapped = False
         
@@ -206,24 +206,24 @@ class Navigate:
         goal_pose = cozmo.util.Pose(goal_x, goal_y, 0,angle_z=cozmo.util.Angle(degrees=goal_heading))
         
         if kidnapped:
-            return Kidnapped()
+            return Kidnapped
         else:
             robot.go_to_pose(goal_pose)
-            return Arrived()
+            return Arrived
             
         
 class Kidnapped:
-    def act(robot: cozmo.robot.Robot):
+    async def act(robot: cozmo.robot.Robot):
         # TODO: display sad face
         if robot.is_picked_up:
-            return Kidnapped()
+            return Kidnapped
         else:
-            return Localize()
+            return Localize
             
 class Arrived:
-    def act(robot: cozmo.robot.Robot):
+    async def act(robot: cozmo.robot.Robot):
         # TODO: display happy face
-        return Arrived()
+        return Arrived
             
             
 # for some reason stop_all_motors leaves cozmo wiggling, this is to circumvent that
