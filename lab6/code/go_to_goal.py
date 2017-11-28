@@ -205,23 +205,17 @@ async def Navigate(robot: cozmo.robot.Robot):
     dist = grid_distance(goal[0], goal[1], robot_grid_pose[0], robot_grid_pose[1])
     angle2 = proj_angle_deg(goal[2] - (robot_grid_pose[2] + angle1))
     
-    print(angle1)
-    print(dist)
-    print(angle2)
+    print(str(angle1) + " degrees")
+    print(str(dist) + " inches")
+    print(str(angle2) + " degrees")
     
     turn1 = robot.turn_in_place(cozmo.util.degrees(angle1), in_parallel=True)
-    if kidnapped:
-        return Kidnapped
     await turn1.wait_for_completed()
     
     move = robot.drive_straight(cozmo.util.distance_inches(dist), cozmo.util.speed_mmps(30), in_parallel=True)
-    if kidnapped:
-        return Kidnapped
     await move.wait_for_completed()
     
     turn2 = robot.turn_in_place(cozmo.util.degrees(angle2), in_parallel=True)
-    if kidnapped:
-        return Kidnapped
     await turn2.wait_for_completed()
     
     if kidnapped:
