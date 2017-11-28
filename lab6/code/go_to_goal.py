@@ -6,6 +6,7 @@ import numpy as np
 from numpy.linalg import inv
 import threading
 import time
+import asyncio
 
 from ar_markers.hamming.detect import detect_markers
 
@@ -70,7 +71,7 @@ def cvt_2Dmarker_measurements(ar_markers):
         R_2_2p = np.matrix([[0,-1,0], [0,0,-1], [1,0,0]])
         R_2p_1p = np.matmul(np.matmul(inv(R_2_2p), inv(R_1_2)), R_1_1p)
         #print('\n', R_2p_1p)
-        yaw = -math.atan2(R_2p_1p[2,0], R_2p_1p[0,0])
+        yaw = -np.atan2(R_2p_1p[2,0], R_2p_1p[0,0])
         
         x, y = m.tvec[2][0] + 0.5, -m.tvec[0][0]
         # print('x =', x, 'y =', y,'theta =', yaw)
@@ -114,6 +115,7 @@ class ParticleFilter:
         # ---------- Motion model update ----------
         self.particles = motion_update(self.particles, odom)
 
+
         # ---------- Sensor (markers) model update ----------
         self.particles = measurement_update(self.particles, r_marker_list, self.grid)
 
@@ -130,6 +132,7 @@ async def run(robot: cozmo.robot.Robot):
 
     # start streaming
     robot.camera.image_stream_enabled = True
+    await robot.set_head_angle(cozmo.util.degrees(0)).wait_for_completed()
 
     #start particle filter
     pf = ParticleFilter(grid)
@@ -138,49 +141,50 @@ async def run(robot: cozmo.robot.Robot):
     ######################### YOUR CODE HERE####################################
     
     last_pose = robot.pose
-    
-    state = Localize()
+
+    state = Localize
     while state is not None:
-        state = state.act(robot)
-    
+        state = await state(robot)
+
+    gui.updated.set()
     ############################################################################
     
 
-class Localize:
-    def act(robot: cozmo.robot.Robot):
-        global particle_filter, last_pose, robot_grid_pose
-        kidnapped = False
-        
-        # start rotating
-        rotation_speed = 8
-        robot.drive_wheels(-1 * rotation_speed, rotation_speed)
-        
-        # reset particle filter
-        particle_filter = ParticleFilter(grid)
-        
-        # define event handler that returns Kidnapped when robot picked up
-        async def handle_kidnapping(e: cozmo.robot.EvtRobotStateUpdated, **kwargs):
-            nonlocal kidnapped
-            if robot.is_picked_up:
-                kidnapped = True
-                really_stop(robot)
-        robot.world.add_event_handler(cozmo.robots.EvtRobotStateUpdated, handle_kidnapping)
-        
-        confident = False
-        result = None
-        while not confident and not kidnapped:
-            odom = compute_odometry(robot.pose)
-            last_pose = robot.pose
-            markers = image_processing(robot)
-            result = particle_filter.update(odom, markers)
-            confident = result[3]
-            
-        robot_grid_pose = (result[0], result[1], result[2])
-        
-        if kidnapped:
-            return Kidnapped()
-        else:
-            return Navigate()
+async def Localize(robot: cozmo.robot.Robot):
+    global particle_filter, last_pose, robot_grid_pose
+    kidnapped = False
+
+    # start rotating
+    rotation_speed = 8
+    robot.drive_wheel_motors(-1 * rotation_speed, rotation_speed)
+
+    # reset particle filter
+    particle_filter = ParticleFilter(grid)
+
+    # define event handler that returns Kidnapped when robot picked up
+    async def handle_kidnapping(e: cozmo.robot.EvtRobotStateUpdated, robot: cozmo.robot.Robot, **kwargs):
+        nonlocal kidnapped
+        play_animation(robot, cozmo.anim.Triggers.CodeLabUnhappy).wait_for_completed()
+        if robot.is_picked_up:
+            kidnapped = True
+            really_stop(robot)
+    robot.world.add_event_handler(cozmo.robot.EvtRobotStateUpdated, handle_kidnapping)
+
+    confident = False
+    result = None
+    while not confident and not kidnapped:
+        odom = compute_odometry(robot.pose)
+        last_pose = robot.pose
+        markers = await asyncio.ensure_future(image_processing(robot))
+        result = particle_filter.update(odom, markers)
+        confident = result[3]
+
+    robot_grid_pose = (result[0], result[1], result[2])
+
+    if kidnapped:
+        return Kidnapped
+    else:
+        return Navigate
 
         
 class Navigate:
@@ -206,24 +210,22 @@ class Navigate:
         goal_pose = cozmo.util.Pose(goal_x, goal_y, 0,angle_z=cozmo.util.Angle(degrees=goal_heading))
         
         if kidnapped:
-            return Kidnapped()
+            return Kidnapped
         else:
             robot.go_to_pose(goal_pose)
-            return Arrived()
+            return Arrived
             
         
-class Kidnapped:
-    def act(robot: cozmo.robot.Robot):
-        # TODO: display sad face
-        if robot.is_picked_up:
-            return Kidnapped()
-        else:
-            return Localize()
-            
-class Arrived:
-    def act(robot: cozmo.robot.Robot):
-        # TODO: display happy face
-        return Arrived()
+
+async def Kidnapped(robot: cozmo.robot.Robot):
+    if robot.is_picked_up:
+        return Kidnapped
+    else:
+        return Localize
+
+async def Arrived(robot: cozmo.robot.Robot):
+    play_animation(robot, cozmo.anim.Triggers.CodeLabSurprise).wait_for_completed()
+    return Arrived
             
             
 # for some reason stop_all_motors leaves cozmo wiggling, this is to circumvent that
@@ -231,6 +233,11 @@ def really_stop(robot: cozmo.robot.Robot):
     robot.stop_all_motors()
     robot.drive_wheel_motors(0, 0)
             
+
+def play_animation(robot: cozmo.robot.Robot, trigger: cozmo.anim.AnimationTrigger):
+    return robot.play_anim_trigger(trigger, use_lift_safe=False, ignore_body_track=True,
+                                            ignore_head_track=True, ignore_lift_track=True)
+
 
 class CozmoThread(threading.Thread):
     def __init__(self):
