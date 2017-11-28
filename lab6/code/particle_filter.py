@@ -73,7 +73,7 @@ def measurement_update(particles, measured_marker_list, grid):
     global last_measured_marker_list, moved
     new_info = False
     # no input, what we're doing is useless
-    if measured_marker_list:
+    if len(measured_marker_list) == 0:
         return particles
     if last_measured_marker_list is not None and len(last_measured_marker_list) == len(measured_marker_list) \
             and not moved:

@@ -38,6 +38,8 @@ particle_filter = None
 # map
 Map_filename = "map_arena.json"
 
+kidnapped = False
+
 
 async def image_processing(robot):
 
@@ -133,6 +135,18 @@ async def run(robot: cozmo.robot.Robot):
     # start streaming
     robot.camera.image_stream_enabled = True
     await robot.set_head_angle(cozmo.util.degrees(0)).wait_for_completed()
+    
+    # define event handler that returns Kidnapped when robot picked up
+    async def handle_kidnapping(e: cozmo.robot.EvtRobotStateUpdated, **kwargs):
+        if robot.is_picked_up and not kidnapped:
+            global kidnapped
+            kidnapped = True
+            really_stop(robot)
+            await play_animation(robot, cozmo.anim.Triggers.CodeLabUnhappy).wait_for_completed()
+        elif not robot.is_picked_up:
+            global kidnapped
+            kidnapped = False          
+    robot.world.add_event_handler(cozmo.robot.EvtRobotStateUpdated, handle_kidnapping)
 
     ############################################################################
     ######################### YOUR CODE HERE####################################
@@ -145,26 +159,17 @@ async def run(robot: cozmo.robot.Robot):
     
     ############################################################################
     
-
 async def Localize(robot: cozmo.robot.Robot):
-    global particle_filter, last_pose, robot_grid_pose
-    kidnapped = False
-
+    print("Localize")
+    global particle_filter, last_pose, robot_grid_pose, kidnapped
+    kidnapped = robot.is_picked_up
+    
     # start rotating
     rotation_speed = 8
     robot.drive_wheel_motors(rotation_speed, 5 * rotation_speed)
 
     # reset particle filter
     particle_filter = ParticleFilter(grid)
-
-    # define event handler that returns Kidnapped when robot picked up
-    async def handle_kidnapping(e: cozmo.robot.EvtRobotStateUpdated, robot: cozmo.robot.Robot, **kwargs):
-        nonlocal kidnapped
-        if robot.is_picked_up and not kidnapped:
-            kidnapped = True
-            really_stop(robot)
-            await play_animation(robot, cozmo.anim.Triggers.CodeLabUnhappy).wait_for_completed()
-    robot.world.add_event_handler(cozmo.robot.EvtRobotStateUpdated, handle_kidnapping)
 
     confident = False
     result = None
@@ -179,7 +184,8 @@ async def Localize(robot: cozmo.robot.Robot):
         gui.show_mean(result[0], result[1], result[2], result[3])
         gui.updated.set()
 
-    robot_grid_pose = (result[0], result[1], result[2])
+    if result is not None:
+        robot_grid_pose = (result[0], result[1], result[2])
 
     if kidnapped:
         return Kidnapped
@@ -188,16 +194,9 @@ async def Localize(robot: cozmo.robot.Robot):
 
         
 async def Navigate(robot: cozmo.robot.Robot):
-    global robot_grid_pose, goal
-    kidnapped = False
-
-    # define event handler that returns Kidnapped when robot picked up
-    async def handle_kidnapping(e: cozmo.robot.EvtRobotStateUpdated, **kwargs):
-        nonlocal kidnapped
-        if robot.is_picked_up:
-            kidnapped = True
-            really_stop(robot) # TODO: will this interrupt go_to_pose? if not maybe it's better to manually move to goal_pose since no obstacles
-    robot.world.add_event_handler(cozmo.robots.EvtRobotStateUpdated, handle_kidnapping)
+    print("Navigate")
+    global robot_grid_pose, goal, kidnapped
+    kidnapped = robot.is_picked_up
 
     x = robot.pose.position.x
     y = robot.pose.position.y
@@ -210,20 +209,28 @@ async def Navigate(robot: cozmo.robot.Robot):
 
     if kidnapped:
         return Kidnapped
+        
+    robot.go_to_pose(goal_pose)
+    
+    if kidnapped:
+        return Kidnapped
     else:
-        robot.go_to_pose(goal_pose)
         return Arrived
             
-        
+
 async def Kidnapped(robot: cozmo.robot.Robot):
-    if robot.is_picked_up:
+    #print("Kidnapped")
+    global kidnapped
+    kidnapped = robot.is_picked_up
+    if kidnapped:
         return Kidnapped
     else:
         return Localize
 
         
 async def Arrived(robot: cozmo.robot.Robot):
-    play_animation(robot, cozmo.anim.Triggers.CodeLabSurprise).wait_for_completed()
+    print("Arrived")
+    await play_animation(robot, cozmo.anim.Triggers.CodeLabSurprise).wait_for_completed()
     return Arrived
             
             

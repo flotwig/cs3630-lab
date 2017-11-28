@@ -17,7 +17,7 @@ Use_GUI = True
 
 Robot_speed = 0.5
 Robot_init_pose = (6, 3, 0)
-Move_circular = False
+Move_circular = True
 Dh_circular = 10
 
 # move robot just forward
