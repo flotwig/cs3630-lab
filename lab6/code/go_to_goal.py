@@ -39,7 +39,8 @@ particle_filter = None
 Map_filename = "map_arena.json"
 
 kidnapped = False
-
+last_origin = 0
+current_anim = None
 
 async def image_processing(robot):
 
@@ -128,24 +129,24 @@ class ParticleFilter:
 
         
 async def run(robot: cozmo.robot.Robot):
-    global last_pose
+    global last_pose, last_origin
     global grid, gui
     global particle_filter
 
     # start streaming
     robot.camera.image_stream_enabled = True
     await robot.set_head_angle(cozmo.util.degrees(0)).wait_for_completed()
-    
+    last_origin = robot.pose.origin_id
+
     # define event handler that returns Kidnapped when robot picked up
-    async def handle_kidnapping(e: cozmo.robot.EvtRobotStateUpdated, **kwargs):
-        if robot.is_picked_up and not kidnapped:
-            global kidnapped
-            kidnapped = True
+    async def handle_kidnapping(e: cozmo.robot.EvtRobotStateUpdated, robot: cozmo.robot.Robot, **kwargs):
+        global kidnapped, current_anim, last_origin
+        kidnapped = last_origin is not robot.pose.origin_id or robot.is_picked_up
+        if kidnapped and not current_anim:
             really_stop(robot)
             await play_animation(robot, cozmo.anim.Triggers.CodeLabUnhappy).wait_for_completed()
-        elif not robot.is_picked_up:
-            global kidnapped
-            kidnapped = False          
+        else:
+            last_origin = robot.pose.origin_id
     robot.world.add_event_handler(cozmo.robot.EvtRobotStateUpdated, handle_kidnapping)
 
     ############################################################################
@@ -162,8 +163,8 @@ async def run(robot: cozmo.robot.Robot):
 async def Localize(robot: cozmo.robot.Robot):
     print("Localize")
     global particle_filter, last_pose, robot_grid_pose, kidnapped
-    kidnapped = robot.is_picked_up
-    
+    start_origin = robot.pose.origin_id
+
     # start rotating
     rotation_speed = 8
     robot.drive_wheel_motors(rotation_speed, 5 * rotation_speed)
@@ -173,7 +174,7 @@ async def Localize(robot: cozmo.robot.Robot):
 
     confident = False
     result = None
-    while not confident and not kidnapped:
+    while not confident and not kidnapped and start_origin is robot.pose.origin_id:
         odom = compute_odometry(robot.pose)
         last_pose = robot.pose
         markers = cvt_2Dmarker_measurements(await asyncio.ensure_future(image_processing(robot)))
@@ -187,7 +188,7 @@ async def Localize(robot: cozmo.robot.Robot):
     if result is not None:
         robot_grid_pose = (result[0], result[1], result[2])
 
-    if kidnapped:
+    if kidnapped or start_origin is not robot.pose.origin_id:
         return Kidnapped
     else:
         return Navigate
@@ -210,7 +211,7 @@ async def Navigate(robot: cozmo.robot.Robot):
     if kidnapped:
         return Kidnapped
         
-    robot.go_to_pose(goal_pose)
+    await robot.go_to_pose(goal_pose, in_parallel=True).wait_for_completed()
     
     if kidnapped:
         return Kidnapped
@@ -220,11 +221,12 @@ async def Navigate(robot: cozmo.robot.Robot):
 
 async def Kidnapped(robot: cozmo.robot.Robot):
     #print("Kidnapped")
-    global kidnapped
-    kidnapped = robot.is_picked_up
+    global kidnapped, last_origin
+    kidnapped = last_origin is not robot.pose.origin_id and robot.is_picked_up
     if kidnapped:
         return Kidnapped
     else:
+        last_origin = robot.pose.origin_id
         return Localize
 
         
@@ -241,9 +243,17 @@ def really_stop(robot: cozmo.robot.Robot):
             
 
 def play_animation(robot: cozmo.robot.Robot, trigger: cozmo.anim.AnimationTrigger):
-    return robot.play_anim_trigger(trigger, use_lift_safe=False, ignore_body_track=True,
-                                            ignore_head_track=True, ignore_lift_track=True)
+    global current_anim
+    current_anim = trigger
 
+    async def finish_anim(e: cozmo.anim.EvtAnimationCompleted, **kwargs):
+        global current_anim
+        current_anim = None
+
+    play = robot.play_anim_trigger(trigger, use_lift_safe=False, ignore_body_track=True,
+                            ignore_head_track=True, ignore_lift_track=True, in_parallel=True)
+    play.add_event_handler(cozmo.anim.EvtAnimationCompleted, finish_anim)
+    return play
 
 class CozmoThread(threading.Thread):
     def __init__(self):
