@@ -141,11 +141,9 @@ async def run(robot: cozmo.robot.Robot):
     # define event handler that returns Kidnapped when robot picked up
     async def handle_kidnapping(e: cozmo.robot.EvtRobotStateUpdated, robot: cozmo.robot.Robot, **kwargs):
         global kidnapped, current_anim, last_origin
-        kidnapped = last_origin is not robot.pose.origin_id or robot.is_picked_up
+        if last_origin is not robot.pose.origin_id or robot.is_picked_up:
+            kidnapped = True
         last_origin = robot.pose.origin_id
-        if kidnapped and not current_anim:
-            really_stop(robot)
-            await play_animation(robot, cozmo.anim.Triggers.CodeLabUnhappy).wait_for_completed()
     robot.world.add_event_handler(cozmo.robot.EvtRobotStateUpdated, handle_kidnapping)
 
     ############################################################################
@@ -163,6 +161,7 @@ async def Localize(robot: cozmo.robot.Robot):
     print("Localize")
     global particle_filter, last_pose, robot_grid_pose, kidnapped
     start_origin = robot.pose.origin_id
+    kidnapped = False
 
     # start rotating
     rotation_speed = 8
@@ -219,12 +218,17 @@ async def Navigate(robot: cozmo.robot.Robot):
             
 
 async def Kidnapped(robot: cozmo.robot.Robot):
-    #print("Kidnapped")
+    print("Kidnapped")
     global kidnapped, last_origin
-    kidnapped = False
+    
+    really_stop(robot)
+    if not current_anim:
+        await play_animation(robot, cozmo.anim.Triggers.CodeLabUnhappy).wait_for_completed()
+    
     # you can add a 3 second wait and assume it has been put back down in that time
     time.sleep(3)
     last_origin = robot.pose.origin_id
+    kidnapped = False
     return Localize
 
         
