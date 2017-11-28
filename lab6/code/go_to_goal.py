@@ -152,11 +152,10 @@ async def Localize(robot: cozmo.robot.Robot):
 
     # start rotating
     rotation_speed = 8
-    robot.drive_wheel_motors(-1 * rotation_speed, rotation_speed)
+    robot.drive_wheel_motors(rotation_speed, 5 * rotation_speed)
 
     # reset particle filter
     particle_filter = ParticleFilter(grid)
-    gui.particles = particle_filter.particles
 
     # define event handler that returns Kidnapped when robot picked up
     async def handle_kidnapping(e: cozmo.robot.EvtRobotStateUpdated, robot: cozmo.robot.Robot, **kwargs):
@@ -176,6 +175,7 @@ async def Localize(robot: cozmo.robot.Robot):
         result = particle_filter.update(odom, markers)
         confident = result[3]
         gui.robot = Particle(result[0], result[1], result[2])
+        gui.show_particles(particle_filter.particles)
         gui.show_mean(result[0], result[1], result[2], result[3])
         gui.updated.set()
 
