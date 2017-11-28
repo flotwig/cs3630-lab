@@ -134,9 +134,6 @@ async def run(robot: cozmo.robot.Robot):
     robot.camera.image_stream_enabled = True
     await robot.set_head_angle(cozmo.util.degrees(0)).wait_for_completed()
 
-    #start particle filter
-    pf = ParticleFilter(grid)
-
     ############################################################################
     ######################### YOUR CODE HERE####################################
     
@@ -145,8 +142,7 @@ async def run(robot: cozmo.robot.Robot):
     state = Localize
     while state is not None:
         state = await state(robot)
-
-    gui.updated.set()
+    
     ############################################################################
     
 
@@ -160,6 +156,7 @@ async def Localize(robot: cozmo.robot.Robot):
 
     # reset particle filter
     particle_filter = ParticleFilter(grid)
+    gui.particles = particle_filter.particles
 
     # define event handler that returns Kidnapped when robot picked up
     async def handle_kidnapping(e: cozmo.robot.EvtRobotStateUpdated, robot: cozmo.robot.Robot, **kwargs):
@@ -178,6 +175,9 @@ async def Localize(robot: cozmo.robot.Robot):
         markers = cvt_2Dmarker_measurements(await asyncio.ensure_future(image_processing(robot)))
         result = particle_filter.update(odom, markers)
         confident = result[3]
+        gui.robot = Particle(result[0], result[1], result[2])
+        gui.show_mean(result[0], result[1], result[2], result[3])
+        gui.updated.set()
 
     robot_grid_pose = (result[0], result[1], result[2])
 
@@ -215,13 +215,13 @@ async def Navigate(robot: cozmo.robot.Robot):
         return Arrived
             
         
-
 async def Kidnapped(robot: cozmo.robot.Robot):
     if robot.is_picked_up:
         return Kidnapped
     else:
         return Localize
 
+        
 async def Arrived(robot: cozmo.robot.Robot):
     play_animation(robot, cozmo.anim.Triggers.CodeLabSurprise).wait_for_completed()
     return Arrived
