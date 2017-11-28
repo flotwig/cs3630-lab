@@ -141,12 +141,11 @@ async def run(robot: cozmo.robot.Robot):
     # define event handler that returns Kidnapped when robot picked up
     async def handle_kidnapping(e: cozmo.robot.EvtRobotStateUpdated, robot: cozmo.robot.Robot, **kwargs):
         global kidnapped, current_anim, last_origin
-        kidnapped = last_origin is not robot.pose.origin_id or robot.is_picked_up
+        kidnapped = last_origin is not robot.pose.origin_id and robot.is_picked_up
+        last_origin = robot.pose.origin_id
         if kidnapped and not current_anim:
             really_stop(robot)
             await play_animation(robot, cozmo.anim.Triggers.CodeLabUnhappy).wait_for_completed()
-        else:
-            last_origin = robot.pose.origin_id
     robot.world.add_event_handler(cozmo.robot.EvtRobotStateUpdated, handle_kidnapping)
 
     ############################################################################
@@ -167,7 +166,7 @@ async def Localize(robot: cozmo.robot.Robot):
 
     # start rotating
     rotation_speed = 8
-    robot.drive_wheel_motors(rotation_speed, 5 * rotation_speed)
+    robot.drive_wheel_motors(-1 * rotation_speed, rotation_speed)
 
     # reset particle filter
     particle_filter = ParticleFilter(grid)
