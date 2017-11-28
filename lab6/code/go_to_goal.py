@@ -162,6 +162,7 @@ async def Localize(robot: cozmo.robot.Robot):
     global particle_filter, last_pose, robot_grid_pose, kidnapped
     start_origin = robot.pose.origin_id
     kidnapped = False
+    await robot.set_head_angle(cozmo.util.degrees(0)).wait_for_completed()
 
     # start rotating
     rotation_speed = 8
