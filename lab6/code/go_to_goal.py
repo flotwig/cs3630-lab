@@ -186,6 +186,7 @@ async def Localize(robot: cozmo.robot.Robot):
     if result is not None:
         robot_grid_pose = (result[0], result[1], result[2])
 
+    really_stop(robot)
     if kidnapped or start_origin is not robot.pose.origin_id:
         return Kidnapped
     else:
@@ -195,21 +196,29 @@ async def Localize(robot: cozmo.robot.Robot):
 async def Navigate(robot: cozmo.robot.Robot):
     print("Navigate")
     global robot_grid_pose, goal, kidnapped
-    kidnapped = robot.is_picked_up
 
-    x = robot.pose.position.x
-    y = robot.pose.position.y
-    heading = robot.pose.rotation.angle_z.degrees
-
-    goal_x = x + goal[0] - robot_grid_pose[0]
-    goal_y = y + goal[1] - robot_grid_pose[1]
-    goal_heading = proj_angle_deg(heading + goal[2] - robot_grid_pose[2])
-    goal_pose = cozmo.util.Pose(goal_x, goal_y, 0,angle_z=cozmo.util.Angle(degrees=goal_heading))
-
+    angle1 = proj_angle_deg(math.degrees(math.atan2(goal[1] - robot_grid_pose[1], goal[0] - robot_grid_pose[0])) - robot_grid_pose[2])
+    dist = grid_distance(goal[0], goal[1], robot_grid_pose[0], robot_grid_pose[1])
+    angle2 = proj_angle_deg(goal[2] - (robot_grid_pose[2] + angle1))
+    
+    print(angle1)
+    print(dist)
+    print(angle2)
+    
+    turn1 = robot.turn_in_place(cozmo.util.degrees(angle1), in_parallel=True)
     if kidnapped:
         return Kidnapped
-        
-    await robot.go_to_pose(goal_pose, in_parallel=True).wait_for_completed()
+    await turn1.wait_for_completed()
+    
+    move = robot.drive_straight(cozmo.util.distance_inches(dist), cozmo.util.speed_mmps(30), in_parallel=True)
+    if kidnapped:
+        return Kidnapped
+    await move.wait_for_completed()
+    
+    turn2 = robot.turn_in_place(cozmo.util.degrees(angle2), in_parallel=True)
+    if kidnapped:
+        return Kidnapped
+    await turn2.wait_for_completed()
     
     if kidnapped:
         return Kidnapped
@@ -234,7 +243,17 @@ async def Kidnapped(robot: cozmo.robot.Robot):
         
 async def Arrived(robot: cozmo.robot.Robot):
     print("Arrived")
-    await play_animation(robot, cozmo.anim.Triggers.CodeLabSurprise).wait_for_completed()
+    
+    if kidnapped:
+        return Kidnapped
+            
+    if not current_anim:
+        await play_animation(robot, cozmo.anim.Triggers.CodeLabSurprise).wait_for_completed()
+        
+    while True:
+        if kidnapped:
+            return Kidnapped
+        
     return Arrived
             
             
