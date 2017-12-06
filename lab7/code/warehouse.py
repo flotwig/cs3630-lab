@@ -36,6 +36,21 @@ particle_filter = None
 # map
 Map_filename = "map_arena.json"
 
+# docking (left) and warehouse (right) regions divided by the line x = 13
+region_vertical_divider = 13
+
+# fragile zone is below y = 4
+fragile_horizontal_divider = 4
+
+# storage zone is to the right of x = 22
+storage_vertical_divider = 22
+
+# pickup zone is to the left of x = 8 and above y = 10
+pickup_divider = (8, 10)
+
+# relay zone is in the rectangle x = [10, 16], y = [6, 12]
+relay_rectangle = ((10, 6), (16, 12))
+
 async def image_processing(robot):
 
     global camK, marker_size
@@ -154,7 +169,7 @@ async def Localize(robot: cozmo.robot.Robot):
     confident = False
     result = None
     times_confident = 0
-    while not confident and not kidnapped and start_origin is robot.pose.origin_id:
+    while not confident:
         odom = compute_odometry(robot.pose)
         last_pose = robot.pose
         markers = cvt_2Dmarker_measurements(await asyncio.ensure_future(image_processing(robot)))
@@ -166,17 +181,27 @@ async def Localize(robot: cozmo.robot.Robot):
         gui.show_mean(result[0], result[1], result[2], result[3])
         gui.updated.set()
 
-    if result is not None:
-        robot_grid_pose = (result[0], result[1], result[2])
-
     really_stop(robot)
-    # TODO: return next state depending on which zone we are in
+    
+    if result is None:
+        return Localize
+        
+    robot_grid_pose = (result[0], result[1], result[2])
+
+    if robot_grid_pose[0] < region_vertical_divider:
+        return Pickup
+    else:
+        return Storage
 
 
 async def Pickup(robot: cozmo.robot.Robot):
+    print("Pickup")
+    return None
     # TODO: move boxes from the pickup zone to the relay zone
     
 async def Storage(robot: cozmo.robot.Robot):
+    print("Storage")
+    return None
     # TODO: move boxes from the relay zone to the storage zone
 
             
