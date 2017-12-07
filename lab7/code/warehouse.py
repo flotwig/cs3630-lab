@@ -156,6 +156,7 @@ async def run(robot: cozmo.robot.Robot):
     
     ############################################################################
     
+    
 async def Localize(robot: cozmo.robot.Robot):
     print("Localize")
     global particle_filter, last_pose, robot_grid_pose
@@ -195,11 +196,9 @@ async def Localize(robot: cozmo.robot.Robot):
     else:
         return Storage
 
-wait_pose = None
-dropoff_pos = None
-boxes_moved = 0
 
 async def Pickup(robot: cozmo.robot.Robot):
+    global boxes_moved
     print("Pickup")
     
     # between the fragile and pickup zones facing the pickup zone
@@ -214,9 +213,20 @@ async def Pickup(robot: cozmo.robot.Robot):
     
     await robot.go_to_pose(cozmo_pose(robot, wait_pose), relative_to_robot=True).wait_for_completed()
     
-    return None
+    while # no visible, valid cubes:
+        continue
+        
+    cube = # cube we saw
+    
+    await robot.pickup_object(cube).wait_for_completed()
+    await robot.robot.go_to_pose(cozmo_pose(robot, dropoff_pose), relative_to_robot=True).wait_for_completed()
+    await robot.place_object_on_ground_here(cube).wait_for_completed()
+    
+    return Pickup
+    
     
 async def Storage(robot: cozmo.robot.Robot):
+    global boxes_moved
     print("Storage")
     
     # between the relay and storage zones facing the relay zone
@@ -229,7 +239,19 @@ async def Storage(robot: cozmo.robot.Robot):
     dropoff_y = grid.height - 4 * (boxes_moved + 1)
     dropoff_pose = (dropoff_x, dropoff_y, 0)
     
-    return None
+    await robot.go_to_pose(cozmo_pose(robot, wait_pose), relative_to_robot=True).wait_for_completed()
+    
+    while # no visible, valid cubes:
+        continue
+        
+    cube = # cube we saw
+    
+    await robot.pickup_object(cube).wait_for_completed()
+    await robot.robot.go_to_pose(cozmo_pose(robot, dropoff_pose), relative_to_robot=True).wait_for_completed()
+    await robot.place_object_on_ground_here(cube).wait_for_completed()
+    
+    return Storage
+    
 
 def cozmo_pose(robot: cozmo.robot.Robot, grid_pose):
     print(robot_grid_pose)
@@ -247,7 +269,8 @@ def cozmo_pose(robot: cozmo.robot.Robot, grid_pose):
     cozmo_angle_delta = cozmo.util.Angle(degrees=proj_angle_deg(grid_pose[2] - robot_grid_pose[2]))
     
     return cozmo.util.pose_z_angle(x_cozmo_delta.distance_mm, y_cozmo_delta.distance_mm, 0, cozmo_angle_delta)
-            
+          
+          
 # for some reason stop_all_motors leaves cozmo wiggling, this is to circumvent that
 def really_stop(robot: cozmo.robot.Robot):
     robot.stop_all_motors()
