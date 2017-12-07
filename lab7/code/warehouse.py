@@ -141,6 +141,8 @@ async def run(robot: cozmo.robot.Robot):
     global last_pose
     global grid, gui
     global particle_filter
+    
+    
 
     # start streaming
     robot.camera.image_stream_enabled = True
@@ -193,17 +195,58 @@ async def Localize(robot: cozmo.robot.Robot):
     else:
         return Storage
 
+wait_pose = None
+dropoff_pos = None
+boxes_moved = 0
 
 async def Pickup(robot: cozmo.robot.Robot):
     print("Pickup")
+    
+    # between the fragile and pickup zones facing the pickup zone
+    wait_x = region_vertical_divider / 2
+    wait_y = (fragile_horizontal_divider + pickup_divider[1]) / 2
+    wait_pose = (wait_x, wait_y, 110)
+    
+    # in the middle of the relay zone
+    dropoff_x = (relay_rectangle[0][0] + relay_rectangle[1][0]) / 2
+    dropoff_y = (relay_rectangle[0][1] + relay_rectangle[1][1]) / 2
+    dropoff_pose = (dropoff_x, dropoff_y, 0)
+    
+    await robot.go_to_pose(cozmo_pose(robot, wait_pose), relative_to_robot=True).wait_for_completed()
+    
     return None
-    # TODO: move boxes from the pickup zone to the relay zone
     
 async def Storage(robot: cozmo.robot.Robot):
     print("Storage")
+    
+    # between the relay and storage zones facing the relay zone
+    wait_x = (relay_rectangle[1][0] + storage_vertical_divider) / 2
+    wait_y = (relay_rectangle[0][1] + relay_rectangle[1][1]) / 2
+    wait_pose = (wait_x, wait_y, 130)
+    
+    # in the middle of the relay zone
+    dropoff_x = (storage_vertical_divider + grid.width) / 2
+    dropoff_y = grid.height - 4 * (boxes_moved + 1)
+    dropoff_pose = (dropoff_x, dropoff_y, 0)
+    
     return None
-    # TODO: move boxes from the relay zone to the storage zone
 
+def cozmo_pose(robot: cozmo.robot.Robot, grid_pose):
+    print(robot_grid_pose)
+    
+    x_grid_delta = grid_pose[0] - robot_grid_pose[0]
+    y_grid_delta = grid_pose[1] - robot_grid_pose[1]
+    print(x_grid_delta, " ", y_grid_delta)
+    
+    # transform from grid coord frame to robot's
+    robot_angle = -math.radians(robot_grid_pose[2])
+    x_cozmo_delta = cozmo.util.distance_inches(x_grid_delta * math.cos(robot_angle) - y_grid_delta * math.sin(robot_angle))
+    y_cozmo_delta = cozmo.util.distance_inches(x_grid_delta * math.sin(robot_angle) + y_grid_delta * math.cos(robot_angle))
+    print(x_cozmo_delta.distance_inches, " ", y_cozmo_delta.distance_inches)
+    
+    cozmo_angle_delta = cozmo.util.Angle(degrees=proj_angle_deg(grid_pose[2] - robot_grid_pose[2]))
+    
+    return cozmo.util.pose_z_angle(x_cozmo_delta.distance_mm, y_cozmo_delta.distance_mm, 0, cozmo_angle_delta)
             
 # for some reason stop_all_motors leaves cozmo wiggling, this is to circumvent that
 def really_stop(robot: cozmo.robot.Robot):

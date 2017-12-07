@@ -105,8 +105,10 @@ def calculate_particle_probability(particle, measured_marker_list, grid):
     
 
 def replace_unlikely_particles(particles, probabilities, measured_marker_list, grid):
+    standard_dev = np.std(probabilities)
+    mean = np.mean(probabilities)
     for (i, prob) in enumerate(probabilities):
-        if prob < MIN_PROBABILITY:
+        if prob < mean - standard_dev / 2:
             particles[i] = Particle.create_random(1, grid)[0]
             probabilities[i] = calculate_particle_probability(particles[i], measured_marker_list, grid)
 
@@ -139,18 +141,18 @@ def measurement_update(particles, measured_marker_list, grid):
     for j, particle in enumerate(particles):
         probabilities.append(calculate_particle_probability(particle, measured_marker_list, grid))
         
-    max_prob = max(probabilities)
-    if max_prob < 1 / len(probabilities):
-        return particles
+    #max_prob = max(probabilities)
+    #if max_prob < 1 / len(probabilities):
+        #return particles
         
     replace_unlikely_particles(particles, probabilities, measured_marker_list, grid)
             
     # normalize probabilities and choose particles
     probabilities = np.divide(probabilities, [np.sum(probabilities)])
     # sanity check on probs - if none of these particles are likely, return stale particle distribution
-    max_prob = max(probabilities)
-    if max_prob < 1 / len(probabilities):
-        return particles
+    #max_prob = max(probabilities)
+    #if max_prob < 1 / len(probabilities):
+    #    return particles
     measured_particles = np.random.choice(particles, p=probabilities, size=PARTICLE_COUNT)
 
     if len(measured_particles) == 0:
