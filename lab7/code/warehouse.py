@@ -27,8 +27,11 @@ marker_size = 3.5
 # tmp cache
 last_pose = cozmo.util.Pose(0,0,0,angle_z=cozmo.util.Angle(degrees=0))
 
-# pose of the robot in the grid coord frame
-robot_grid_pose = None
+# location of the origin of cozmo's coord frame in the grid coord frame
+cozmo_origin = None
+
+# angle between the x-axis of cozmo's coord frame and x-axis of grid coord frame
+cozmo_rotation = None
 
 # particle filter for the robot to localize
 particle_filter = None
@@ -50,6 +53,9 @@ pickup_divider = (8, 10)
 
 # relay zone is in the rectangle x = [10, 16], y = [6, 12]
 relay_rectangle = ((10, 6), (16, 12))
+
+# number of boxes successfully transported
+boxes_moved = 0
 
 async def image_processing(robot):
 
@@ -141,8 +147,6 @@ async def run(robot: cozmo.robot.Robot):
     global last_pose
     global grid, gui
     global particle_filter
-    
-    
 
     # start streaming
     robot.camera.image_stream_enabled = True
@@ -158,8 +162,9 @@ async def run(robot: cozmo.robot.Robot):
     
     
 async def Localize(robot: cozmo.robot.Robot):
-    print("Localize")
-    global particle_filter, last_pose, robot_grid_pose
+    global particle_filter, last_pose, cozmo_origin, cozmo_rotation
+    print("Entering state Localize")
+    
     await robot.set_head_angle(cozmo.util.degrees(0)).wait_for_completed()
 
     # start rotating
@@ -190,6 +195,22 @@ async def Localize(robot: cozmo.robot.Robot):
         return Localize
         
     robot_grid_pose = (result[0], result[1], result[2])
+    
+    cozmo_rotation = proj_angle_deg(robot_grid_pose[2] - robot.pose.rotation.angle_z.degrees)
+    
+    # angle and magnitude of the vector pointing from cozmo to his origin (both in the grid coord frame)
+    angle = math.atan2(robot.pose.position.y, robot.pose.position.x) + math.radians(cozmo_rotation) + math.pi
+    magnitude = math.sqrt(mm_to_inches(robot.pose.position.x)**2 + mm_to_inches(robot.pose.position.y)**2)
+    
+    cozmo_origin_x = robot_grid_pose[0] + magnitude * math.cos(angle)
+    cozmo_origin_y = robot_grid_pose[1] + magnitude * math.sin(angle)
+    cozmo_origin = (cozmo_origin_x, cozmo_origin_y)
+    
+    print("begin test")
+    print(robot_grid_pose)
+    print(cozmo_pose(robot, robot_grid_pose))
+    print(grid_pose(robot, cozmo_pose(robot, robot_grid_pose)))
+    print("end test")
 
     if robot_grid_pose[0] < region_vertical_divider:
         return Pickup
@@ -198,8 +219,7 @@ async def Localize(robot: cozmo.robot.Robot):
 
 
 async def Pickup(robot: cozmo.robot.Robot):
-    global boxes_moved
-    print("Pickup")
+    print("Entering state Pickup")
     
     # between the fragile and pickup zones facing the pickup zone
     wait_x = region_vertical_divider / 2
@@ -211,23 +231,17 @@ async def Pickup(robot: cozmo.robot.Robot):
     dropoff_y = (relay_rectangle[0][1] + relay_rectangle[1][1]) / 2
     dropoff_pose = (dropoff_x, dropoff_y, 0)
     
-    await robot.go_to_pose(cozmo_pose(robot, wait_pose), relative_to_robot=True).wait_for_completed()
+    def cube_pose_constraints(cube_grid_pose):
+        return cube_grid_pose[0] <= pickup_divider[0] and cube_grid_pose[1] >= pickup_divider[1]
     
-    while # no visible, valid cubes:
-        continue
-        
-    cube = # cube we saw
-    
-    await robot.pickup_object(cube).wait_for_completed()
-    await robot.robot.go_to_pose(cozmo_pose(robot, dropoff_pose), relative_to_robot=True).wait_for_completed()
-    await robot.place_object_on_ground_here(cube).wait_for_completed()
+    await deliver_cube(robot, wait_pose, dropoff_pose, cube_pose_constraints)
     
     return Pickup
     
     
 async def Storage(robot: cozmo.robot.Robot):
     global boxes_moved
-    print("Storage")
+    print("Entering state Storage")
     
     # between the relay and storage zones facing the relay zone
     wait_x = (relay_rectangle[1][0] + storage_vertical_divider) / 2
@@ -236,39 +250,81 @@ async def Storage(robot: cozmo.robot.Robot):
     
     # in the middle of the relay zone
     dropoff_x = (storage_vertical_divider + grid.width) / 2
-    dropoff_y = grid.height - 4 * (boxes_moved + 1)
+    dropoff_y = grid.height - 2.5 * (boxes_moved + 1)
     dropoff_pose = (dropoff_x, dropoff_y, 0)
     
-    await robot.go_to_pose(cozmo_pose(robot, wait_pose), relative_to_robot=True).wait_for_completed()
-    
-    while # no visible, valid cubes:
-        continue
+    def cube_pose_constraints(cube_grid_pose):
+        x_constraints = cube_grid_pose[0] >= relay_rectangle[0][0] and cube_grid_pose[0] <= relay_rectangle[1][0]
+        y_constraints = cube_grid_pose[1] >= relay_rectangle[0][1] and cube_grid_pose[1] <= relay_rectangle[1][1]
+        return x_constraints and y_constraints
         
-    cube = # cube we saw
-    
-    await robot.pickup_object(cube).wait_for_completed()
-    await robot.robot.go_to_pose(cozmo_pose(robot, dropoff_pose), relative_to_robot=True).wait_for_completed()
-    await robot.place_object_on_ground_here(cube).wait_for_completed()
-    
+    await deliver_cube(robot, wait_pose, dropoff_pose, cube_pose_constraints)
+
     return Storage
     
+    
+async def deliver_cube(robot: cozmo.robot.Robot, wait_pose, dropoff_pose, cube_pose_constraints):
+    global boxes_moved
+    
+    print("Driving to pickup...")
+    await robot.go_to_pose(cozmo_pose(robot, wait_pose)).wait_for_completed()
+    print("Drove to pickup...")
+    
+    print("Waiting for cube...")
+    cube = None
+    while cube is None:
+        cube = await robot.world.wait_for_observed_light_cube()
+        if cube is not None and cube.pose is not None:
+            cube_grid_pose = grid_pose(robot, cube.pose)
+            print(cube_grid_pose)
+            if cube_pose_constraints(cube_grid_pose):
+                print("Cube satisfies constraints!")
+            break
+        cube = None
+    print("Found cube")
+    
+    print("Picking up cube...")
+    await robot.pickup_object(cube).wait_for_completed()
+    print("Picked up cube")
+    
+    print("Driving to dropoff...")
+    await robot.go_to_pose(cozmo_pose(robot, dropoff_pose)).wait_for_completed()
+    print("Drove to dropoff")
+    
+    print("Dropping off cube...")
+    await robot.place_object_on_ground_here(cube).wait_for_completed()
+    print("Dropped off cube")
+    
+    boxes_moved += 1
 
+    
+# give a pose in cozmo coord frame as a pose in the grid coord frame
+def grid_pose(robot: cozmo.robot.Robot, cozmo_pose):
+    robot_x = mm_to_inches(cozmo_pose.position.x)
+    robot_y = mm_to_inches(cozmo_pose.position.y)
+    rotation = math.radians(cozmo_rotation)
+    x = cozmo_origin[0] + (robot_x * math.cos(rotation) - robot_y * math.sin(rotation))
+    y = cozmo_origin[1] + (robot_x * math.sin(rotation) + robot_y * math.cos(rotation))
+    angle = proj_angle_deg(cozmo_rotation + cozmo_pose.rotation.angle_z.degrees)
+    return (x, y, angle)
+
+# give a pose in grid coord frame as a pose in cozmo coord frame
 def cozmo_pose(robot: cozmo.robot.Robot, grid_pose):
-    print(robot_grid_pose)
+    rotation = -math.radians(cozmo_rotation)
+    offset_grid_x = grid_pose[0] - cozmo_origin[0]
+    offset_grid_y = grid_pose[1] - cozmo_origin[1]
+    x = inches_to_mm(offset_grid_x * math.cos(rotation) - offset_grid_y * math.sin(rotation))
+    y = inches_to_mm(offset_grid_x * math.sin(rotation) + offset_grid_y * math.cos(rotation))
+    angle = cozmo.util.Angle(degrees=proj_angle_deg(grid_pose[2] - cozmo_rotation))
+    return cozmo.util.pose_z_angle(x, y, 0, angle)
+          
+          
+def mm_to_inches(mm):
+    return cozmo.util.distance_mm(mm).distance_inches
     
-    x_grid_delta = grid_pose[0] - robot_grid_pose[0]
-    y_grid_delta = grid_pose[1] - robot_grid_pose[1]
-    print(x_grid_delta, " ", y_grid_delta)
     
-    # transform from grid coord frame to robot's
-    robot_angle = -math.radians(robot_grid_pose[2])
-    x_cozmo_delta = cozmo.util.distance_inches(x_grid_delta * math.cos(robot_angle) - y_grid_delta * math.sin(robot_angle))
-    y_cozmo_delta = cozmo.util.distance_inches(x_grid_delta * math.sin(robot_angle) + y_grid_delta * math.cos(robot_angle))
-    print(x_cozmo_delta.distance_inches, " ", y_cozmo_delta.distance_inches)
-    
-    cozmo_angle_delta = cozmo.util.Angle(degrees=proj_angle_deg(grid_pose[2] - robot_grid_pose[2]))
-    
-    return cozmo.util.pose_z_angle(x_cozmo_delta.distance_mm, y_cozmo_delta.distance_mm, 0, cozmo_angle_delta)
+def inches_to_mm(inches):
+    return cozmo.util.distance_inches(inches).distance_mm
           
           
 # for some reason stop_all_motors leaves cozmo wiggling, this is to circumvent that
