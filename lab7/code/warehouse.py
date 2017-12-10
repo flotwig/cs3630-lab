@@ -205,12 +205,6 @@ async def Localize(robot: cozmo.robot.Robot):
     cozmo_origin_x = robot_grid_pose[0] + magnitude * math.cos(angle)
     cozmo_origin_y = robot_grid_pose[1] + magnitude * math.sin(angle)
     cozmo_origin = (cozmo_origin_x, cozmo_origin_y)
-    
-    print("begin test")
-    print(robot_grid_pose)
-    print(cozmo_pose(robot, robot_grid_pose))
-    print(grid_pose(robot, cozmo_pose(robot, robot_grid_pose)))
-    print("end test")
 
     if robot_grid_pose[0] < region_vertical_divider:
         return Pickup
