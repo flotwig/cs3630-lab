@@ -272,8 +272,7 @@ async def deliver_cube(robot: cozmo.robot.Robot, wait_pose, dropoff_pose, cube_p
             cube_grid_pose = grid_pose(robot, cube.pose)
             print(cube_grid_pose)
             if cube_pose_constraints(cube_grid_pose):
-                print("Cube satisfies constraints!")
-            break
+                break
         cube = None
     print("Found cube")
     
