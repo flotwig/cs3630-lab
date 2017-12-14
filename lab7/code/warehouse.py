@@ -151,6 +151,7 @@ async def run(robot: cozmo.robot.Robot):
     # start streaming
     robot.camera.image_stream_enabled = True
     await robot.set_head_angle(cozmo.util.degrees(0)).wait_for_completed()
+    await robot.set_lift_height(0).wait_for_completed()
     
     last_pose = robot.pose
 
@@ -166,9 +167,10 @@ async def Localize(robot: cozmo.robot.Robot):
     print("Entering state Localize")
     
     await robot.set_head_angle(cozmo.util.degrees(0)).wait_for_completed()
+    await robot.set_lift_height(0).wait_for_completed()
 
     # start rotating
-    rotation_speed = 8
+    rotation_speed = 4
     robot.drive_wheel_motors(-1 * rotation_speed, rotation_speed)
 
     # reset particle filter
@@ -221,7 +223,7 @@ async def Pickup(robot: cozmo.robot.Robot):
     wait_pose = (wait_x, wait_y, 110)
     
     # in the middle of the relay zone
-    dropoff_x = (relay_rectangle[0][0] + relay_rectangle[1][0]) / 2
+    dropoff_x = (relay_rectangle[0][0] + relay_rectangle[1][0]) / 2 - 3
     dropoff_y = (relay_rectangle[0][1] + relay_rectangle[1][1]) / 2
     dropoff_pose = (dropoff_x, dropoff_y, 0)
     
@@ -240,10 +242,10 @@ async def Storage(robot: cozmo.robot.Robot):
     # between the relay and storage zones facing the relay zone
     wait_x = (relay_rectangle[1][0] + storage_vertical_divider) / 2
     wait_y = (relay_rectangle[0][1] + relay_rectangle[1][1]) / 2
-    wait_pose = (wait_x, wait_y, 130)
+    wait_pose = (wait_x, wait_y, 180)
     
     # in the middle of the relay zone
-    dropoff_x = (storage_vertical_divider + grid.width) / 2
+    dropoff_x = grid.width - 4
     dropoff_y = grid.height - 2.5 * (boxes_moved + 1)
     dropoff_pose = (dropoff_x, dropoff_y, 0)
     
